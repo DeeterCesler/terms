@@ -1,0 +1,25 @@
+{
+  "name": "term-checker",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "dev:api": "npm run dev --workspace=packages/api",
+    "migrate": "npx tsx scripts/migrate.ts",
+    "test": "vitest run",
+    "lint": "eslint packages/*/src --ext .ts",
+    "typecheck": "tsc --build"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "eslint": "^8.57.0",
+    "prettier": "^3.2.5",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.0",
+    "vitest": "^1.4.0"
+  }
+}

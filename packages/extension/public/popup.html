@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Term Checker</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div id="app">
+    <header>
+      <span class="logo">🛡️ Term Checker</span>
+    </header>
+    <main id="content">
+      <div id="state-loading" class="state hidden">
+        <div class="spinner"></div>
+        <p>Checking…</p>
+      </div>
+      <div id="state-not-found" class="state hidden">
+        <p class="not-found-msg">We haven't analyzed this site yet.</p>
+        <p class="domain-label" id="nf-domain"></p>
+      </div>
+      <div id="state-error" class="state hidden">
+        <p class="error-msg">Could not reach the checker service.</p>
+      </div>
+      <div id="state-found" class="state hidden">
+        <div class="domain-row">
+          <span class="domain-name" id="found-domain"></span>
+        </div>
+        <div class="score-section">
+          <div class="score-badge" id="score-badge">–</div>
+          <div class="score-label">Privacy Score<br/><span id="score-tier"></span></div>
+        </div>
+        <div class="findings">
+          <div class="finding-row">
+            <span class="finding-label">Shares with 3rd parties</span>
+            <span class="finding-value" id="f-shares"></span>
+          </div>
+          <div class="finding-row">
+            <span class="finding-label">Sells your data</span>
+            <span class="finding-value" id="f-sells"></span>
+          </div>
+          <div class="finding-row">
+            <span class="finding-label">Data anonymized</span>
+            <span class="finding-value" id="f-anon"></span>
+          </div>
+          <div class="finding-row">
+            <span class="finding-label">Data retention</span>
+            <span class="finding-value retention" id="f-retention"></span>
+          </div>
+          <div class="finding-row rights-row" id="rights-row">
+            <span class="finding-label">Your rights</span>
+            <span class="finding-value rights" id="f-rights"></span>
+          </div>
+        </div>
+        <div class="summary-section">
+          <p id="summary-text"></p>
+        </div>
+        <div class="footer">
+          <span class="last-analyzed">Last analyzed: <span id="last-analyzed"></span></span>
+        </div>
+      </div>
+    </main>
+  </div>
+  <script type="module" src="./popup.js"></script>
+</body>
+</html>

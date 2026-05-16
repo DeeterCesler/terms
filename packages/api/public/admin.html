@@ -1,0 +1,1329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TermChecker Admin</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #F6F5F2;
+      --surface:   #FFFFFF;
+      --border:    #E2E0D9;
+      --border-2:  #CBC9C1;
+      --text:      #1C1B18;
+      --muted:     #79776E;
+      --subtle:    #ADAB9F;
+      --accent:    #1C1B18;
+      --nav-h:     52px;
+
+      --good:      #15803D;
+      --good-bg:   #DCFCE7;
+      --fair:      #B45309;
+      --fair-bg:   #FEF3C7;
+      --poor:      #B91C1C;
+      --poor-bg:   #FEE2E2;
+      --null-c:    #6B7280;
+      --null-bg:   #F3F4F6;
+
+      --pend-c:    #6D28D9;
+      --pend-bg:   #EDE9FE;
+      --proc-c:    #0369A1;
+      --proc-bg:   #E0F2FE;
+      --done-c:    #15803D;
+      --done-bg:   #DCFCE7;
+      --fail-c:    #B91C1C;
+      --fail-bg:   #FEE2E2;
+
+      --radius:    6px;
+      --mono:      'Courier New', Courier, monospace;
+    }
+
+    html, body { height: 100%; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+      background: var(--bg);
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── LOGIN ── */
+    #login-view {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+
+    .login-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 40px 36px;
+      width: 340px;
+      box-shadow: 0 2px 12px rgba(0,0,0,.06);
+    }
+
+    .login-card h1 {
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: -.3px;
+      margin-bottom: 4px;
+    }
+
+    .login-card p {
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 24px;
+    }
+
+    .login-error {
+      background: var(--poor-bg);
+      color: var(--poor-c);
+      border: 1px solid #FECACA;
+      border-radius: var(--radius);
+      padding: 8px 12px;
+      font-size: 13px;
+      margin-bottom: 16px;
+      display: none;
+    }
+
+    /* ── NAV ── */
+    #app-view { display: none; min-height: 100vh; }
+
+    nav {
+      height: var(--nav-h);
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 24px;
+      gap: 16px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .nav-brand {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: .6px;
+      text-transform: uppercase;
+      color: var(--text);
+      flex: 1;
+    }
+
+    .nav-brand span {
+      color: var(--subtle);
+      font-weight: 400;
+    }
+
+    /* ── LAYOUT ── */
+    main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 28px 24px 60px;
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+    }
+
+    /* ── CARDS ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+
+    .card-header {
+      padding: 16px 20px 0;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0;
+    }
+
+    .card-title {
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: .2px;
+      color: var(--text);
+      margin-bottom: 14px;
+    }
+
+    .card-body { padding: 20px; }
+
+    /* ── TABS ── */
+    .tabs {
+      display: flex;
+      gap: 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .tab {
+      padding: 10px 18px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--muted);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      transition: color .15s, border-color .15s;
+      background: none;
+      border-top: none;
+      border-left: none;
+      border-right: none;
+    }
+
+    .tab:hover { color: var(--text); }
+    .tab.active { color: var(--text); border-bottom-color: var(--text); }
+
+    .tab-panel { display: none; padding: 20px; }
+    .tab-panel.active { display: block; }
+
+    /* ── FORM ELEMENTS ── */
+    .field { margin-bottom: 14px; }
+    .field:last-child { margin-bottom: 0; }
+
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--muted);
+      letter-spacing: .3px;
+      text-transform: uppercase;
+      margin-bottom: 5px;
+    }
+
+    input[type="text"],
+    input[type="url"],
+    input[type="password"],
+    textarea {
+      width: 100%;
+      padding: 8px 11px;
+      font-size: 13px;
+      font-family: inherit;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      outline: none;
+      transition: border-color .15s, box-shadow .15s;
+    }
+
+    input[type="text"]:focus,
+    input[type="url"]:focus,
+    input[type="password"]:focus,
+    textarea:focus {
+      border-color: var(--border-2);
+      box-shadow: 0 0 0 3px rgba(0,0,0,.05);
+      background: #fff;
+    }
+
+    textarea { resize: vertical; min-height: 140px; font-family: var(--mono); font-size: 12px; }
+
+    .field-hint { font-size: 11px; color: var(--subtle); margin-top: 4px; }
+
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+    /* ── BUTTONS ── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 14px;
+      font-size: 13px;
+      font-weight: 500;
+      font-family: inherit;
+      border-radius: var(--radius);
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: opacity .15s, background .15s;
+      white-space: nowrap;
+    }
+
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+    .btn-primary {
+      background: var(--text);
+      color: #fff;
+      border-color: var(--text);
+    }
+    .btn-primary:hover:not(:disabled) { opacity: .85; }
+
+    .btn-secondary {
+      background: var(--surface);
+      color: var(--text);
+      border-color: var(--border);
+    }
+    .btn-secondary:hover:not(:disabled) { background: var(--bg); }
+
+    .btn-danger {
+      background: transparent;
+      color: var(--poor-c);
+      border-color: transparent;
+      padding: 4px 8px;
+      font-size: 12px;
+    }
+    .btn-danger:hover:not(:disabled) { background: var(--poor-bg); border-color: #FECACA; }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--muted);
+      border-color: transparent;
+      padding: 4px 8px;
+      font-size: 12px;
+    }
+    .btn-ghost:hover:not(:disabled) { background: var(--bg); color: var(--text); }
+
+    .btn-sm { padding: 5px 10px; font-size: 12px; }
+
+    .form-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 18px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+    }
+
+    /* ── INLINE NOTICE ── */
+    .notice {
+      border-radius: var(--radius);
+      padding: 10px 14px;
+      font-size: 13px;
+      border: 1px solid;
+    }
+    .notice-success { background: var(--good-bg); color: var(--good); border-color: #BBF7D0; }
+    .notice-error   { background: var(--poor-bg); color: var(--poor-c); border-color: #FECACA; }
+    .notice-info    { background: var(--proc-bg); color: var(--proc-c); border-color: #BAE6FD; }
+
+    /* ── ANALYSIS RESULT ── */
+    .result-box {
+      margin-top: 20px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .result-header {
+      background: var(--bg);
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .result-header-title {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .4px;
+      color: var(--muted);
+    }
+
+    .result-summary {
+      padding: 14px 16px;
+      font-size: 13px;
+      color: var(--text);
+      line-height: 1.6;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .result-findings { padding: 14px 16px; }
+
+    .findings-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .finding-cell {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px 12px;
+    }
+
+    .finding-label {
+      font-size: 11px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: .4px;
+      color: var(--subtle);
+      margin-bottom: 4px;
+    }
+
+    .finding-value { font-size: 13px; font-weight: 600; }
+    .finding-yes   { color: var(--poor-c); }
+    .finding-no    { color: var(--good); }
+    .finding-unk   { color: var(--muted); }
+
+    .finding-evidence {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 4px;
+      line-height: 1.5;
+      font-style: italic;
+    }
+
+    .finding-row {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      padding: 8px 0;
+      border-top: 1px solid var(--border);
+      font-size: 13px;
+    }
+
+    .finding-row-label {
+      font-size: 11px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: .4px;
+      color: var(--subtle);
+    }
+
+    .rights-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-top: 4px;
+    }
+
+    .rights-pill {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      padding: 2px 9px;
+      font-size: 11px;
+      color: var(--text);
+    }
+
+    /* ── SCORE BADGE ── */
+    .score-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 700;
+      font-family: var(--mono);
+      flex-shrink: 0;
+    }
+
+    .score-badge.good  { background: var(--good-bg);  color: var(--good); }
+    .score-badge.fair  { background: var(--fair-bg);  color: var(--fair); }
+    .score-badge.poor  { background: var(--poor-bg);  color: var(--poor-c); }
+    .score-badge.null  { background: var(--null-bg);  color: var(--null-c); }
+
+    .score-badge.lg {
+      width: 44px;
+      height: 44px;
+      font-size: 18px;
+      border-radius: 8px;
+    }
+
+    /* ── TABLE ── */
+    .table-wrap {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    thead th {
+      padding: 10px 16px;
+      text-align: left;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .4px;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+
+    tbody tr {
+      border-bottom: 1px solid var(--border);
+      transition: background .1s;
+    }
+
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: var(--bg); }
+
+    td {
+      padding: 10px 16px;
+      vertical-align: middle;
+    }
+
+    .td-domain {
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 500;
+      max-width: 220px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .td-muted { color: var(--muted); font-size: 12px; }
+
+    .td-actions {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+    }
+
+    /* ── STATUS BADGE ── */
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 2px 8px;
+      border-radius: 100px;
+      font-size: 11px;
+      font-weight: 500;
+    }
+
+    .status-badge::before {
+      content: '';
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: currentColor;
+      flex-shrink: 0;
+    }
+
+    .status-pending    { background: var(--pend-bg); color: var(--pend-c); }
+    .status-processing { background: var(--proc-bg); color: var(--proc-c); }
+    .status-done       { background: var(--done-bg); color: var(--done-c); }
+    .status-failed     { background: var(--fail-bg); color: var(--fail-c); }
+    .status-none       { background: var(--null-bg); color: var(--null-c); }
+
+    /* ── PAGINATION ── */
+    .pagination {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      border-top: 1px solid var(--border);
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .pagination-controls { display: flex; gap: 4px; }
+
+    /* ── EMPTY / LOADING ── */
+    .table-empty {
+      padding: 48px 24px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid var(--border);
+      border-top-color: var(--text);
+      border-radius: 50%;
+      animation: spin .6s linear infinite;
+      vertical-align: middle;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── SECTION HEADER ── */
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .section-title {
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    select,
+    input[type="number"] {
+      width: 100%;
+      padding: 8px 11px;
+      font-size: 13px;
+      font-family: inherit;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      outline: none;
+      transition: border-color .15s, box-shadow .15s;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2379776E' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      padding-right: 28px;
+      cursor: pointer;
+    }
+    input[type="number"] { background-image: none; padding-right: 11px; }
+
+    select:focus,
+    input[type="number"]:focus {
+      border-color: var(--border-2);
+      box-shadow: 0 0 0 3px rgba(0,0,0,.05);
+      background-color: #fff;
+    }
+
+    .type-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 100px;
+      font-size: 11px;
+      font-weight: 500;
+      background: var(--null-bg);
+      color: var(--null-c);
+    }
+
+    .priority-pip {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 700;
+      font-family: var(--mono);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--muted);
+    }
+    .priority-pip.hi { background: var(--poor-bg);  border-color: #FECACA; color: var(--poor-c); }
+    .priority-pip.lo { background: var(--good-bg);  border-color: #BBF7D0; color: var(--good); }
+
+    .candidate-form {
+      padding: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+
+    .toggle-group {
+      display: flex;
+      gap: 2px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 2px;
+    }
+
+    .toggle-btn {
+      padding: 4px 12px;
+      font-size: 12px;
+      font-weight: 500;
+      border-radius: calc(var(--radius) - 1px);
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      transition: background .15s, color .15s;
+      font-family: inherit;
+    }
+    .toggle-btn.active {
+      background: var(--surface);
+      color: var(--text);
+      box-shadow: 0 1px 3px rgba(0,0,0,.08);
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── LOGIN ── -->
+<div id="login-view">
+  <div class="login-card">
+    <h1>TermChecker</h1>
+    <p>Admin panel — enter your secret to continue.</p>
+    <div class="login-error" id="login-error"></div>
+    <div class="field">
+      <label for="secret-input">Admin Secret</label>
+      <input type="password" id="secret-input" placeholder="Enter secret..." autocomplete="current-password">
+    </div>
+    <div style="margin-top:16px">
+      <button class="btn btn-primary" style="width:100%" id="login-btn" onclick="login()">Sign in</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── APP ── -->
+<div id="app-view">
+  <nav>
+    <div class="nav-brand">TermChecker <span>/ Admin</span></div>
+    <button class="btn btn-secondary btn-sm" onclick="logout()">Sign out</button>
+  </nav>
+
+  <main>
+
+    <!-- Submit card -->
+    <div class="card">
+      <div class="card-header">
+        <div class="tabs">
+          <button class="tab active" id="tab-crawl" onclick="switchTab('crawl')">Crawl URL</button>
+          <button class="tab" id="tab-raw" onclick="switchTab('raw')">Raw Text</button>
+        </div>
+      </div>
+
+      <!-- Crawl tab -->
+      <div class="tab-panel active" id="panel-crawl">
+        <div id="crawl-notice" style="margin-bottom:14px;display:none"></div>
+        <div class="form-row">
+          <div class="field">
+            <label for="crawl-url">Policy URL</label>
+            <input type="url" id="crawl-url" placeholder="https://example.com/privacy">
+          </div>
+          <div class="field">
+            <label for="crawl-domain">Domain override <span style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label>
+            <input type="text" id="crawl-domain" placeholder="example.com">
+            <div class="field-hint">Leave blank to infer from URL.</div>
+          </div>
+        </div>
+        <div class="form-footer">
+          <span class="td-muted" id="crawl-status"></span>
+          <button class="btn btn-primary" id="crawl-btn" onclick="submitCrawl()">Queue crawl</button>
+        </div>
+      </div>
+
+      <!-- Raw tab -->
+      <div class="tab-panel" id="panel-raw">
+        <div id="raw-notice" style="margin-bottom:14px;display:none"></div>
+        <div class="form-row">
+          <div class="field">
+            <label for="raw-domain">Domain</label>
+            <input type="text" id="raw-domain" placeholder="example.com">
+          </div>
+          <div class="field">
+            <label for="raw-url">Policy URL</label>
+            <input type="url" id="raw-url" placeholder="https://example.com/privacy">
+          </div>
+        </div>
+        <div class="field">
+          <label for="raw-text">Policy Text</label>
+          <textarea id="raw-text" placeholder="Paste the full policy text here..."></textarea>
+        </div>
+        <div class="form-footer">
+          <span class="td-muted" id="raw-status"></span>
+          <button class="btn btn-primary" id="raw-btn" onclick="submitRaw()">Analyze</button>
+        </div>
+        <div id="raw-result" style="display:none"></div>
+      </div>
+    </div>
+
+    <!-- Candidates card -->
+    <div class="card">
+      <div class="section-header">
+        <div class="section-title">Candidates <span id="candidates-count" style="color:var(--muted);font-weight:400"></span></div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <div class="toggle-group">
+            <button class="toggle-btn active" id="toggle-pending" onclick="setCandidateFilter('pending')">Pending</button>
+            <button class="toggle-btn" id="toggle-all" onclick="setCandidateFilter('all')">All</button>
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="loadCandidates()">Refresh</button>
+        </div>
+      </div>
+
+      <!-- Add form -->
+      <div class="candidate-form">
+        <div id="candidate-notice" style="margin-bottom:14px;display:none"></div>
+        <div class="form-row" style="margin-bottom:14px">
+          <div class="field" style="margin-bottom:0">
+            <label for="c-domain">Domain <span style="color:var(--poor-c)">*</span></label>
+            <input type="text" id="c-domain" placeholder="google.com">
+          </div>
+          <div class="field" style="margin-bottom:0">
+            <label for="c-name">Company name</label>
+            <input type="text" id="c-name" placeholder="Google LLC">
+          </div>
+        </div>
+        <div class="form-row-3" style="margin-bottom:14px">
+          <div class="field" style="margin-bottom:0">
+            <label for="c-product">Product</label>
+            <input type="text" id="c-product" placeholder="Maps (optional)">
+          </div>
+          <div class="field" style="margin-bottom:0">
+            <label for="c-type">Type</label>
+            <select id="c-type">
+              <option value="privacy_policy">Privacy Policy</option>
+              <option value="terms_of_service">Terms of Service</option>
+              <option value="cookie_policy">Cookie Policy</option>
+              <option value="data_processing_agreement">Data Processing Agreement</option>
+              <option value="acceptable_use_policy">Acceptable Use Policy</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div class="field" style="margin-bottom:0">
+            <label for="c-priority">Priority <span style="font-weight:400;text-transform:none;letter-spacing:0">(1=high, 10=low)</span></label>
+            <input type="number" id="c-priority" value="5" min="1" max="10">
+          </div>
+        </div>
+        <div class="form-row" style="margin-bottom:0">
+          <div class="field" style="margin-bottom:0">
+            <label for="c-url">URL <span style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label>
+            <input type="url" id="c-url" placeholder="https://policies.google.com/privacy">
+          </div>
+          <div class="field" style="margin-bottom:0">
+            <label for="c-notes">Notes</label>
+            <input type="text" id="c-notes" placeholder="Why add this?">
+          </div>
+        </div>
+        <div class="form-footer" style="margin-top:14px;padding-top:14px">
+          <span></span>
+          <button class="btn btn-primary" id="c-add-btn" onclick="addCandidate()">Add to list</button>
+        </div>
+      </div>
+
+      <!-- Table -->
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Domain</th>
+              <th>Product</th>
+              <th>Type</th>
+              <th>URL</th>
+              <th style="text-align:center">Priority</th>
+              <th>Notes</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="candidates-tbody">
+            <tr><td colspan="7" class="table-empty"><span class="spinner"></span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Sites card -->
+    <div class="card">
+      <div class="section-header">
+        <div class="section-title">Sites</div>
+        <button class="btn btn-secondary btn-sm" onclick="loadSites()">Refresh</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Domain</th>
+              <th>Score</th>
+              <th>Last Analyzed</th>
+              <th>Queue</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="sites-tbody">
+            <tr><td colspan="5" class="table-empty"><span class="spinner"></span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="pagination" id="pagination" style="display:none">
+        <span id="pagination-info"></span>
+        <div class="pagination-controls">
+          <button class="btn btn-secondary btn-sm" id="btn-prev" onclick="changePage(-1)">Previous</button>
+          <button class="btn btn-secondary btn-sm" id="btn-next" onclick="changePage(1)">Next</button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+  // ── State ──────────────────────────────────────────────────────────────────
+  let secret = '';
+  let currentPage = 1;
+  const PAGE_SIZE = 50;
+
+  // ── Auth ───────────────────────────────────────────────────────────────────
+  function getHeaders() {
+    return { 'Content-Type': 'application/json', 'X-Admin-Secret': secret };
+  }
+
+  async function login() {
+    const input = document.getElementById('secret-input');
+    const errEl = document.getElementById('login-error');
+    const btn = document.getElementById('login-btn');
+    const val = input.value.trim();
+    if (!val) return;
+
+    btn.disabled = true;
+    btn.textContent = 'Checking...';
+    errEl.style.display = 'none';
+
+    try {
+      const res = await fetch('/admin/queue?limit=1', {
+        headers: { 'X-Admin-Secret': val },
+      });
+      if (res.status === 401) {
+        errEl.textContent = 'Invalid secret.';
+        errEl.style.display = 'block';
+        return;
+      }
+      secret = val;
+      sessionStorage.setItem('tc_secret', val);
+      showApp();
+    } catch {
+      errEl.textContent = 'Could not reach the server.';
+      errEl.style.display = 'block';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Sign in';
+    }
+  }
+
+  function logout() {
+    secret = '';
+    sessionStorage.removeItem('tc_secret');
+    document.getElementById('app-view').style.display = 'none';
+    document.getElementById('login-view').style.display = 'flex';
+    document.getElementById('secret-input').value = '';
+  }
+
+  function showApp() {
+    document.getElementById('login-view').style.display = 'none';
+    document.getElementById('app-view').style.display = 'block';
+    loadCandidates();
+    loadSites();
+  }
+
+  // ── Tabs ───────────────────────────────────────────────────────────────────
+  function switchTab(name) {
+    ['crawl', 'raw'].forEach(t => {
+      document.getElementById('tab-' + t).classList.toggle('active', t === name);
+      document.getElementById('panel-' + t).classList.toggle('active', t === name);
+    });
+  }
+
+  // ── Submit: Crawl ──────────────────────────────────────────────────────────
+  async function submitCrawl() {
+    const url = document.getElementById('crawl-url').value.trim();
+    const domain = document.getElementById('crawl-domain').value.trim();
+    const notice = document.getElementById('crawl-notice');
+    const btn = document.getElementById('crawl-btn');
+
+    if (!url) { showNotice(notice, 'error', 'Policy URL is required.'); return; }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Queuing...';
+    notice.style.display = 'none';
+
+    try {
+      const body = { policyUrl: url };
+      if (domain) body.domain = domain;
+      const res = await fetch('/admin/sites', {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showNotice(notice, 'error', data.error?.formErrors?.join(', ') || data.error || 'Request failed.');
+      } else {
+        showNotice(notice, 'success', `Queued — job ${data.jobId} for ${data.domain}.`);
+        document.getElementById('crawl-url').value = '';
+        document.getElementById('crawl-domain').value = '';
+        setTimeout(loadSites, 800);
+      }
+    } catch {
+      showNotice(notice, 'error', 'Network error.');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Queue crawl';
+    }
+  }
+
+  // ── Submit: Raw ────────────────────────────────────────────────────────────
+  async function submitRaw() {
+    const domain = document.getElementById('raw-domain').value.trim();
+    const url = document.getElementById('raw-url').value.trim();
+    const text = document.getElementById('raw-text').value.trim();
+    const notice = document.getElementById('raw-notice');
+    const resultBox = document.getElementById('raw-result');
+    const btn = document.getElementById('raw-btn');
+
+    if (!domain) { showNotice(notice, 'error', 'Domain is required.'); return; }
+    if (!url) { showNotice(notice, 'error', 'Policy URL is required.'); return; }
+    if (!text) { showNotice(notice, 'error', 'Policy text is required.'); return; }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Analyzing...';
+    notice.style.display = 'none';
+    resultBox.style.display = 'none';
+
+    try {
+      const res = await fetch(`/admin/sites/${encodeURIComponent(domain)}/analyze-raw`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ policyUrl: url, policyText: text }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showNotice(notice, 'error', data.error || 'Analysis failed.');
+      } else {
+        showNotice(notice, 'success', `Analysis complete for ${data.domain}.`);
+        resultBox.innerHTML = renderAnalysis(data.analysis);
+        resultBox.style.display = 'block';
+        setTimeout(loadSites, 800);
+      }
+    } catch {
+      showNotice(notice, 'error', 'Network error.');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Analyze';
+    }
+  }
+
+  // ── Render analysis result ─────────────────────────────────────────────────
+  function renderAnalysis(a) {
+    const tier = a.overall_score >= 8 ? 'good' : a.overall_score >= 5 ? 'fair' : 'poor';
+    const tierLabel = { good: 'Good', fair: 'Fair', poor: 'Poor' }[tier];
+
+    const boolHtml = (v) => {
+      if (v === null) return '<span class="finding-value finding-unk">Unknown</span>';
+      return v
+        ? '<span class="finding-value finding-yes">Yes</span>'
+        : '<span class="finding-value finding-no">No</span>';
+    };
+
+    const rights = (a.user_rights || []).map(r =>
+      `<span class="rights-pill">${esc(r)}</span>`
+    ).join('') || '<span style="color:var(--muted);font-size:13px">None mentioned</span>';
+
+    return `
+      <div class="result-box">
+        <div class="result-header">
+          <div class="score-badge lg ${tier}">${a.overall_score}</div>
+          <div>
+            <div class="result-header-title">Analysis Result</div>
+            <div style="font-size:13px;color:var(--muted);margin-top:1px">${tierLabel} privacy score</div>
+          </div>
+        </div>
+        <div class="result-summary">${esc(a.summary)}</div>
+        <div class="result-findings">
+          <div class="findings-grid">
+            <div class="finding-cell">
+              <div class="finding-label">Shares with 3rd parties</div>
+              ${boolHtml(a.shares_with_third_parties?.value)}
+              ${a.shares_with_third_parties?.evidence ? `<div class="finding-evidence">"${esc(a.shares_with_third_parties.evidence)}"</div>` : ''}
+            </div>
+            <div class="finding-cell">
+              <div class="finding-label">Sells data</div>
+              ${boolHtml(a.sells_data?.value)}
+              ${a.sells_data?.evidence ? `<div class="finding-evidence">"${esc(a.sells_data.evidence)}"</div>` : ''}
+            </div>
+            <div class="finding-cell">
+              <div class="finding-label">Data anonymized</div>
+              ${boolHtml(a.data_anonymized?.value)}
+              ${a.data_anonymized?.evidence ? `<div class="finding-evidence">"${esc(a.data_anonymized.evidence)}"</div>` : ''}
+            </div>
+          </div>
+          <div class="finding-row">
+            <div class="finding-row-label">Retention</div>
+            <div style="font-size:13px">${esc(a.data_retention || 'Not specified')}</div>
+          </div>
+          <div class="finding-row">
+            <div class="finding-row-label">User rights</div>
+            <div class="rights-list">${rights}</div>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  // ── Sites table ────────────────────────────────────────────────────────────
+  let totalSites = 0;
+
+  async function loadSites() {
+    const tbody = document.getElementById('sites-tbody');
+    tbody.innerHTML = `<tr><td colspan="5" class="table-empty"><span class="spinner"></span></td></tr>`;
+    document.getElementById('pagination').style.display = 'none';
+
+    try {
+      const offset = (currentPage - 1) * PAGE_SIZE;
+      const res = await fetch(`/admin/sites?page=${currentPage}&limit=${PAGE_SIZE}`, {
+        headers: getHeaders(),
+      });
+      const data = await res.json();
+      if (!res.ok) { tbody.innerHTML = `<tr><td colspan="5" class="table-empty">Error loading sites.</td></tr>`; return; }
+
+      totalSites = data.total ?? 0;
+
+      if (!data.sites || data.sites.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="table-empty">No sites yet.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = data.sites.map(s => {
+        const scoreTier = s.overallScore === null ? 'null' : s.overallScore >= 8 ? 'good' : s.overallScore >= 5 ? 'fair' : 'poor';
+        const scoreHtml = s.overallScore !== null
+          ? `<span class="score-badge ${scoreTier}">${s.overallScore}</span>`
+          : `<span class="score-badge null">—</span>`;
+
+        const analyzed = s.lastAnalyzed
+          ? new Date(s.lastAnalyzed).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+          : '<span class="td-muted">Never</span>';
+
+        const queueHtml = s.queueStatus
+          ? `<span class="status-badge status-${s.queueStatus}">${s.queueStatus}</span>`
+          : `<span class="status-badge status-none">—</span>`;
+
+        return `<tr>
+          <td class="td-domain" title="${esc(s.domain)}">${esc(s.domain)}</td>
+          <td>${scoreHtml}</td>
+          <td class="td-muted">${analyzed}</td>
+          <td>${queueHtml}</td>
+          <td>
+            <div class="td-actions">
+              <button class="btn btn-ghost" onclick="reprocess('${esc(s.domain)}', this)">Reprocess</button>
+              <button class="btn btn-danger" onclick="deleteSite('${esc(s.domain)}', this)">Delete</button>
+            </div>
+          </td>
+        </tr>`;
+      }).join('');
+
+      renderPagination(data.total, data.page, data.limit);
+    } catch {
+      tbody.innerHTML = `<tr><td colspan="5" class="table-empty">Network error.</td></tr>`;
+    }
+  }
+
+  function renderPagination(total, page, limit) {
+    if (!total || total <= limit) { document.getElementById('pagination').style.display = 'none'; return; }
+    const totalPages = Math.ceil(total / limit);
+    document.getElementById('pagination-info').textContent = `Page ${page} of ${totalPages} (${total} sites)`;
+    document.getElementById('btn-prev').disabled = page <= 1;
+    document.getElementById('btn-next').disabled = page >= totalPages;
+    document.getElementById('pagination').style.display = 'flex';
+  }
+
+  function changePage(delta) {
+    currentPage = Math.max(1, currentPage + delta);
+    loadSites();
+  }
+
+  // ── Actions ────────────────────────────────────────────────────────────────
+  async function reprocess(domain, btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>';
+    try {
+      const res = await fetch(`/admin/sites/${encodeURIComponent(domain)}/reprocess`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({}),
+      });
+      if (res.ok) {
+        setTimeout(loadSites, 600);
+      } else {
+        btn.disabled = false;
+        btn.textContent = 'Reprocess';
+      }
+    } catch {
+      btn.disabled = false;
+      btn.textContent = 'Reprocess';
+    }
+  }
+
+  async function deleteSite(domain, btn) {
+    if (!confirm(`Delete ${domain}? This cannot be undone.`)) return;
+    btn.disabled = true;
+    btn.textContent = '...';
+    try {
+      const res = await fetch(`/admin/sites/${encodeURIComponent(domain)}`, {
+        method: 'DELETE',
+        headers: getHeaders(),
+      });
+      if (res.ok) loadSites();
+      else { btn.disabled = false; btn.textContent = 'Delete'; }
+    } catch {
+      btn.disabled = false;
+      btn.textContent = 'Delete';
+    }
+  }
+
+  // ── Utilities ──────────────────────────────────────────────────────────────
+  function showNotice(el, type, msg) {
+    el.className = `notice notice-${type}`;
+    el.textContent = msg;
+    el.style.display = 'block';
+  }
+
+  function esc(str) {
+    return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // ── Candidates ─────────────────────────────────────────────────────────────
+  let candidateFilter = 'pending';
+
+  const TYPE_LABELS = {
+    privacy_policy: 'Privacy Policy',
+    terms_of_service: 'Terms of Service',
+    cookie_policy: 'Cookie Policy',
+    data_processing_agreement: 'DPA',
+    acceptable_use_policy: 'AUP',
+    other: 'Other',
+  };
+
+  function setCandidateFilter(filter) {
+    candidateFilter = filter;
+    document.getElementById('toggle-pending').classList.toggle('active', filter === 'pending');
+    document.getElementById('toggle-all').classList.toggle('active', filter === 'all');
+    loadCandidates();
+  }
+
+  async function loadCandidates() {
+    const tbody = document.getElementById('candidates-tbody');
+    tbody.innerHTML = `<tr><td colspan="7" class="table-empty"><span class="spinner"></span></td></tr>`;
+
+    const endpoint = candidateFilter === 'pending' ? '/admin/candidates/pending' : '/admin/candidates';
+
+    try {
+      const res = await fetch(endpoint, { headers: getHeaders() });
+      const data = await res.json();
+      if (!res.ok) {
+        tbody.innerHTML = `<tr><td colspan="7" class="table-empty">Error loading candidates.</td></tr>`;
+        return;
+      }
+
+      const candidates = data.candidates ?? [];
+      const countEl = document.getElementById('candidates-count');
+      countEl.textContent = candidates.length
+        ? `— ${candidates.length} ${candidateFilter === 'pending' ? 'pending' : 'total'}`
+        : '';
+
+      if (candidates.length === 0) {
+        const msg = candidateFilter === 'pending'
+          ? 'All candidates have been analyzed.'
+          : 'No candidates yet. Add one above.';
+        tbody.innerHTML = `<tr><td colspan="7" class="table-empty">${msg}</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = candidates.map(c => {
+        const pri = c.priority <= 3 ? 'hi' : c.priority >= 8 ? 'lo' : '';
+        const typeLabel = TYPE_LABELS[c.policy_type] ?? c.policy_type;
+        const urlHtml = c.url
+          ? `<a href="${esc(c.url)}" target="_blank" style="color:var(--proc-c);font-family:var(--mono);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px;display:inline-block;vertical-align:bottom">${esc(new URL(c.url).pathname)}</a>`
+          : '<span class="td-muted">—</span>';
+
+        return `<tr>
+          <td class="td-domain" title="${esc(c.domain)}">${esc(c.domain)}</td>
+          <td class="td-muted">${c.product ? esc(c.product) : '—'}</td>
+          <td><span class="type-badge">${esc(typeLabel)}</span></td>
+          <td>${urlHtml}</td>
+          <td style="text-align:center"><span class="priority-pip ${pri}">${c.priority}</span></td>
+          <td class="td-muted" style="font-size:12px;max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.notes ? esc(c.notes) : '—'}</td>
+          <td>
+            <div class="td-actions">
+              <button class="btn btn-danger" onclick="deleteCandidate('${esc(c.id)}', this)">Remove</button>
+            </div>
+          </td>
+        </tr>`;
+      }).join('');
+    } catch {
+      tbody.innerHTML = `<tr><td colspan="7" class="table-empty">Network error.</td></tr>`;
+    }
+  }
+
+  async function addCandidate() {
+    const domain = document.getElementById('c-domain').value.trim();
+    const name = document.getElementById('c-name').value.trim();
+    const product = document.getElementById('c-product').value.trim();
+    const policyType = document.getElementById('c-type').value;
+    const priority = parseInt(document.getElementById('c-priority').value, 10);
+    const url = document.getElementById('c-url').value.trim();
+    const notes = document.getElementById('c-notes').value.trim();
+    const notice = document.getElementById('candidate-notice');
+    const btn = document.getElementById('c-add-btn');
+
+    if (!domain) { showNotice(notice, 'error', 'Domain is required.'); return; }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Adding...';
+    notice.style.display = 'none';
+
+    try {
+      const res = await fetch('/admin/candidates', {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({
+          domain,
+          policyType,
+          name: name || null,
+          product: product || null,
+          url: url || null,
+          priority: isNaN(priority) ? 5 : Math.min(10, Math.max(1, priority)),
+          notes: notes || null,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showNotice(notice, 'error', data.error?.formErrors?.join(', ') || data.error || 'Failed to add candidate.');
+      } else {
+        showNotice(notice, 'success', `Added ${data.candidate.domain}${product ? ' / ' + product : ''}.`);
+        document.getElementById('c-domain').value = '';
+        document.getElementById('c-name').value = '';
+        document.getElementById('c-product').value = '';
+        document.getElementById('c-url').value = '';
+        document.getElementById('c-notes').value = '';
+        document.getElementById('c-priority').value = '5';
+        document.getElementById('c-type').value = 'privacy_policy';
+        loadCandidates();
+      }
+    } catch {
+      showNotice(notice, 'error', 'Network error.');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Add to list';
+    }
+  }
+
+  async function deleteCandidate(id, btn) {
+    btn.disabled = true;
+    btn.textContent = '...';
+    try {
+      const res = await fetch(`/admin/candidates/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        headers: getHeaders(),
+      });
+      if (res.ok) loadCandidates();
+      else { btn.disabled = false; btn.textContent = 'Remove'; }
+    } catch {
+      btn.disabled = false;
+      btn.textContent = 'Remove';
+    }
+  }
+
+  // ── Boot ───────────────────────────────────────────────────────────────────
+  document.addEventListener('DOMContentLoaded', () => {
+    const stored = sessionStorage.getItem('tc_secret');
+    if (stored) {
+      secret = stored;
+      showApp();
+    }
+
+    document.getElementById('secret-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter') login();
+    });
+  });
+</script>
+</body>
+</html>

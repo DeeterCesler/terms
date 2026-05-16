@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+*.tsbuildinfo
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Extension build output (loaded unpacked from here)
+packages/extension/dist/
+packages/extension/.output/
+
+# Test coverage
+coverage/
+
+# Local notes
+TODO.md
+code-quality.md
+code-audit.md
