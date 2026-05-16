@@ -118,22 +118,36 @@ main { padding: 12px 14px; }
 .finding-value.yes { color: #ef4444; }
 .finding-value.no { color: #22c55e; }
 .finding-value.unknown { color: #9ca3af; font-weight: normal; }
-.finding-value.retention { font-weight: normal; color: #374151; font-size: 12px; max-width: 160px; text-align: right; }
-.finding-value.rights { font-weight: normal; color: #374151; font-size: 12px; max-width: 180px; text-align: left; }
+.finding-value.retention { font-weight: normal; color: #374151; font-size: 12px; text-align: left; }
+.finding-value.retention ul,
 .finding-value.rights ul { list-style: disc; padding-left: 16px; margin: 0; }
+.finding-value.retention ul li,
 .finding-value.rights ul li { line-height: 1.4; margin-bottom: 2px; }
-.rights-row { flex-direction: column; align-items: stretch; gap: 4px; }
-.rights-row .finding-label { margin-bottom: 2px; }
+.finding-value.rights { font-weight: normal; color: #374151; font-size: 12px; text-align: left; }
+
+.rights-row, .retention-row { flex-direction: column; align-items: stretch; gap: 4px; }
+.rights-row .finding-label, .retention-row .finding-label { margin-bottom: 2px; }
 
 /* Summary */
 .summary-section {
-  background: #f9fafb;
-  border-radius: 6px;
-  padding: 8px 10px;
-  font-size: 12px;
-  color: #374151;
-  line-height: 1.5;
-  margin-bottom: 8px;
+  position: relative;
+  background: #f5f7fb;
+  border-left: 3px solid #4f46e5;
+  border-radius: 4px;
+  padding: 10px 12px 10px 14px;
+  font-size: 12.5px;
+  color: #1f2937;
+  line-height: 1.55;
+  margin-bottom: 10px;
+}
+.summary-label {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #4f46e5;
+  margin-bottom: 4px;
 }
 
 .footer {

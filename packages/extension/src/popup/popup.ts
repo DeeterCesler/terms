@@ -79,8 +79,28 @@ function renderFound(domain: string, result: any) {
   boolDisplay(a.sellsData.value, document.getElementById('f-sells') as HTMLElement);
   boolDisplay(a.dataAnonymized.value, document.getElementById('f-anon') as HTMLElement);
 
-  (document.getElementById('f-retention') as HTMLElement).textContent =
-    a.dataRetention ?? 'Not specified';
+  const retentionEl = document.getElementById('f-retention') as HTMLElement;
+  retentionEl.replaceChildren();
+  const retention = a.dataRetention ?? null;
+  if (!retention) {
+    retentionEl.textContent = 'Not specified';
+  } else {
+    const sentences = retention
+      .split(/(?<=[.!?])\s+(?=[A-Z])/)
+      .map(s => s.trim())
+      .filter(Boolean);
+    if (sentences.length <= 1) {
+      retentionEl.textContent = retention;
+    } else {
+      const ul = document.createElement('ul');
+      for (const sent of sentences) {
+        const li = document.createElement('li');
+        li.textContent = sent;
+        ul.appendChild(li);
+      }
+      retentionEl.appendChild(ul);
+    }
+  }
 
   const rightsEl = document.getElementById('f-rights') as HTMLElement;
   rightsEl.replaceChildren();
