@@ -118,7 +118,19 @@ function renderFound(domain: string, result: any) {
     rightsEl.appendChild(ul);
   }
 
-  (document.getElementById('summary-text') as HTMLElement).textContent = a.summary;
+  const summaryEl = document.getElementById('summary-text') as HTMLElement;
+  summaryEl.replaceChildren();
+  const summary = (a.summary ?? '').trim();
+  const sentences = summary
+    .split(/(?<=[.!?])\s+(?=[A-Z])/)
+    .map(s => s.trim())
+    .filter(Boolean);
+  const chunks = sentences.length > 0 ? sentences : [summary];
+  for (const chunk of chunks) {
+    const p = document.createElement('p');
+    p.textContent = chunk;
+    summaryEl.appendChild(p);
+  }
 
   (document.getElementById('last-analyzed') as HTMLElement).textContent =
     new Date(result.lastAnalyzed).toLocaleDateString();

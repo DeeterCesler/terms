@@ -147,8 +147,10 @@ main { padding: 12px 14px; }
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: #4f46e5;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
 }
+.summary-section p { margin: 0 0 8px 0; }
+.summary-section p:last-child { margin-bottom: 0; }
 
 .footer {
   font-size: 11px;
