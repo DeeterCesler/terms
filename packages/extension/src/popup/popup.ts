@@ -83,7 +83,20 @@ function renderFound(domain: string, result: any) {
     a.dataRetention ?? 'Not specified';
 
   const rightsEl = document.getElementById('f-rights') as HTMLElement;
-  rightsEl.textContent = a.userRights.length > 0 ? a.userRights.join(', ') : 'None mentioned';
+  rightsEl.replaceChildren();
+  if (a.userRights.length === 0) {
+    rightsEl.textContent = 'None mentioned';
+  } else if (a.userRights.length <= 2) {
+    rightsEl.textContent = a.userRights.join(', ');
+  } else {
+    const ul = document.createElement('ul');
+    for (const right of a.userRights) {
+      const li = document.createElement('li');
+      li.textContent = right;
+      ul.appendChild(li);
+    }
+    rightsEl.appendChild(ul);
+  }
 
   (document.getElementById('summary-text') as HTMLElement).textContent = a.summary;
 
