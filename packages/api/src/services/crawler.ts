@@ -61,21 +61,36 @@ export function normalizePolicyText(raw: string): string {
     .trim();
 }
 
-export async function crawlPolicyUrl(url: string): Promise<CrawlResult> {
-  const response = await fetch(url, {
-    headers: {
-      'User-Agent': 'TermChecker/1.0 (privacy policy analyzer; contact me@deetercesler.com)',
-      'Accept': 'text/html,application/xhtml+xml',
-      'Accept-Language': 'en-US,en;q=0.9',
-    },
-    signal: AbortSignal.timeout(30_000),
-  });
+/**
+ * Normalize + truncate + hash already-extracted raw text. Shared by the
+ * JSDOM extractor below and the local headless fetcher (scripts/), which
+ * gets its raw text directly from Playwright's innerText.
+ */
+export function processRawText(
+  raw: string,
+  contextUrl: string,
+): { text: string; contentHash: string; truncated: boolean } {
+  const text = normalizePolicyText(raw);
+  const truncated = text.length > MAX_CHARS;
+  if (truncated) {
+    console.warn(`[crawler] Truncated policy text from ${text.length} to ${MAX_CHARS} chars for ${contextUrl}`);
+  }
+  const stored = truncated ? text.slice(0, MAX_CHARS) : text;
+  const contentHash = createHash('sha256').update(stored).digest('hex');
+  return { text: stored, contentHash, truncated };
+}
 
-  const html = await response.text();
+/**
+ * Extract clean policy text from a static HTML string via JSDOM + Readability.
+ * Used by the server-side crawler (fetched without a browser).
+ */
+export function extractPolicyText(
+  html: string,
+  url: string,
+): { text: string; contentHash: string; truncated: boolean } {
   const dom = new JSDOM(html, { url });
   const doc = dom.window.document;
 
-  // Remove elements that are never part of the policy text
   for (const sel of ['script', 'style', 'nav', 'header', 'footer', 'aside', 'noscript', '[role="banner"]', '[role="navigation"]', '[role="complementary"]']) {
     doc.querySelectorAll(sel).forEach(el => el.remove());
   }
@@ -90,20 +105,24 @@ export async function crawlPolicyUrl(url: string): Promise<CrawlResult> {
     raw = doc.body?.textContent ?? '';
   }
 
-  const text = normalizePolicyText(raw);
+  return processRawText(raw, url);
+}
 
-  const truncated = text.length > MAX_CHARS;
-  if (truncated) {
-    console.warn(`[crawler] Truncated policy text from ${text.length} to ${MAX_CHARS} chars for ${url}`);
-  }
+export async function crawlPolicyUrl(url: string): Promise<CrawlResult> {
+  const response = await fetch(url, {
+    headers: {
+      'User-Agent': 'TermChecker/1.0 (privacy policy analyzer; contact me@deetercesler.com)',
+      'Accept': 'text/html,application/xhtml+xml',
+      'Accept-Language': 'en-US,en;q=0.9',
+    },
+    signal: AbortSignal.timeout(30_000),
+  });
 
-  const stored = truncated ? text.slice(0, MAX_CHARS) : text;
-  const contentHash = createHash('sha256').update(stored).digest('hex');
+  const html = await response.text();
+  const extracted = extractPolicyText(html, url);
 
   return {
-    text: stored,
-    contentHash,
+    ...extracted,
     httpStatus: response.status,
-    truncated,
   };
 }

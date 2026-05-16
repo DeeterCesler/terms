@@ -5,6 +5,8 @@ COPY package.json ./
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/api/package.json ./packages/api/
 
+# Playwright is a local-only devDep used by scripts/; never download Chromium on Render.
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 RUN npm install
 
 COPY tsconfig.base.json ./
