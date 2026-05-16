@@ -93,6 +93,43 @@ function renderFound(domain: string, result: any) {
   show('state-found');
 }
 
+async function getCurrentTabUrl(): Promise<string | null> {
+  return new Promise(resolve => {
+    chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
+      resolve(tabs[0]?.url ?? null);
+    });
+  });
+}
+
+async function requestAnalysis(domain: string, url: string | null) {
+  const btn = document.getElementById('request-btn') as HTMLButtonElement | null;
+  const status = document.getElementById('request-status') as HTMLElement | null;
+  if (!btn || !status) return;
+
+  btn.disabled = true;
+  btn.textContent = 'Requesting...';
+  status.classList.add('hidden');
+  status.classList.remove('error');
+
+  try {
+    const res = await fetch(`${API_BASE}/api/v1/request/${domain}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(url ? { url } : {}),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    btn.textContent = 'Requested';
+    status.textContent = "Thanks — we'll analyze this site soon.";
+    status.classList.remove('hidden');
+  } catch {
+    btn.disabled = false;
+    btn.textContent = 'Request analysis';
+    status.textContent = 'Request failed. Try again later.';
+    status.classList.remove('hidden');
+    status.classList.add('error');
+  }
+}
+
 async function main() {
   show('state-loading');
 
@@ -108,6 +145,10 @@ async function main() {
     if (!result.found) {
       (document.getElementById('nf-domain') as HTMLElement).textContent = domain;
       show('state-not-found');
+
+      const tabUrl = await getCurrentTabUrl();
+      const btn = document.getElementById('request-btn');
+      btn?.addEventListener('click', () => requestAnalysis(domain, tabUrl));
       return;
     }
 

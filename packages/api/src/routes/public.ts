@@ -1,6 +1,8 @@
 import { Router } from 'express';
+import { z } from 'zod';
 import { getSiteByDomain } from '../db/queries/sites.js';
 import { getLatestAnalysis, getAnalysisHistory } from '../db/queries/analyses.js';
+import { addCandidate } from '../db/queries/candidates.js';
 import { normalizeDomain } from '../utils/domain.js';
 import type { CheckResult, HistoryEntry, PolicyAnalysisRow } from '@term-checker/shared';
 
@@ -78,6 +80,35 @@ publicRouter.get('/check/:domain/history', async (req, res, next) => {
     }));
 
     res.json({ domain, history });
+  } catch (err) {
+    next(err);
+  }
+});
+
+const RequestBody = z.object({
+  url: z.string().url().optional(),
+});
+
+publicRouter.post('/request/:domain', async (req, res, next) => {
+  try {
+    const domain = normalizeDomain(req.params.domain ?? '');
+    if (!domain) {
+      res.status(400).json({ error: 'Invalid domain' });
+      return;
+    }
+
+    const parsed = RequestBody.safeParse(req.body ?? {});
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.flatten() });
+      return;
+    }
+
+    const candidate = await addCandidate(domain, 'privacy_policy', {
+      url: parsed.data.url ?? null,
+      notes: 'requested from extension',
+    });
+
+    res.status(202).json({ domain, candidateId: candidate.id, status: 'requested' });
   } catch (err) {
     next(err);
   }

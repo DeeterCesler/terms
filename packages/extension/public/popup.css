@@ -137,3 +137,26 @@ main { padding: 12px 14px; }
   color: #9ca3af;
   text-align: right;
 }
+
+.request-btn {
+  margin-top: 12px;
+  width: 100%;
+  padding: 8px 12px;
+  background: #1a1a2e;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.request-btn:hover { background: #2a2a4a; }
+.request-btn:disabled { background: #9ca3af; cursor: default; }
+
+.request-status {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #374151;
+  text-align: center;
+}
+.request-status.error { color: #b91c1c; }
