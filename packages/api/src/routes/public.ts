@@ -2,11 +2,11 @@ import { Router } from 'express';
 import { getSiteByDomain } from '../db/queries/sites.js';
 import { getLatestAnalysis, getAnalysisHistory } from '../db/queries/analyses.js';
 import { normalizeDomain } from '../utils/domain.js';
-import type { CheckResult, HistoryEntry } from '@term-checker/shared';
+import type { CheckResult, HistoryEntry, PolicyAnalysisRow } from '@term-checker/shared';
 
 export const publicRouter = Router();
 
-function rowToAnalysis(row: Awaited<ReturnType<typeof getLatestAnalysis>>) {
+function rowToAnalysis(row: PolicyAnalysisRow | null) {
   if (!row) return null;
   return {
     sharesWithThirdParties: { value: row.shares_with_third_parties, evidence: row.shares_evidence },
