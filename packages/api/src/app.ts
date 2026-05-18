@@ -14,10 +14,19 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 export function createApp() {
   const app = express();
 
+  // Render and most managed hosts terminate TLS at a proxy; trust the first
+  // hop so express-rate-limit sees the real client IP instead of bucketing
+  // every request under the proxy's address.
+  app.set('trust proxy', 1);
+
   app.use(cors({ origin: config.corsOrigin === '*' ? true : config.corsOrigin.split(',').map(s => s.trim()) }));
   app.use(express.json());
 
   app.use('/admin-ui', express.static(join(__dirname, '../public')));
+
+  app.get('/privacy', (_req, res) => {
+    res.sendFile(join(__dirname, '../public/privacy.html'));
+  });
 
   app.get('/health', (_req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });

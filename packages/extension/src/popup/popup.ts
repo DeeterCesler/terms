@@ -1,6 +1,6 @@
 import { normalizeDomain } from '../utils/domain.js';
 
-const API_BASE = (import.meta.env.VITE_API_BASE as string | undefined) ?? 'http://localhost:3000';
+const API_BASE = (import.meta.env.VITE_API_BASE as string | undefined) ?? 'https://terms-vzh0.onrender.com';
 
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 min cache per domain
 
@@ -178,6 +178,14 @@ async function requestAnalysis(domain: string, url: string | null) {
 async function main() {
   show('state-loading');
 
+  // Render's free tier sleeps the server after idle; cold starts take ~10-20s.
+  // Swap the loading copy if the response is taking long enough that a cold
+  // start is plausible, so the user knows we're not stuck.
+  const loadingMsg = document.querySelector('#state-loading p') as HTMLElement | null;
+  const wakeTimer = window.setTimeout(() => {
+    if (loadingMsg) loadingMsg.textContent = 'Waking the server, one moment…';
+  }, 3000);
+
   try {
     const domain = await getCurrentDomain();
     if (!domain) {
@@ -203,6 +211,8 @@ async function main() {
     chrome.runtime.sendMessage({ type: 'SET_BADGE', score: result.analysis.overallScore });
   } catch {
     show('state-error');
+  } finally {
+    clearTimeout(wakeTimer);
   }
 }
 

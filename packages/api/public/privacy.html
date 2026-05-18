@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Term Checker — Privacy Policy</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
+      font-size: 15px;
+      line-height: 1.6;
+      color: #1C1B18;
+      background: #F6F5F2;
+      padding: 48px 20px;
+    }
+    main {
+      max-width: 680px;
+      margin: 0 auto;
+      background: #FFFFFF;
+      border: 1px solid #E2E0D9;
+      border-radius: 10px;
+      padding: 40px 44px;
+    }
+    h1 {
+      font-size: 22px;
+      font-weight: 600;
+      letter-spacing: -.3px;
+      margin-bottom: 6px;
+    }
+    h2 {
+      font-size: 15px;
+      font-weight: 600;
+      margin-top: 28px;
+      margin-bottom: 8px;
+    }
+    p { margin-bottom: 12px; color: #1C1B18; }
+    ul { margin: 8px 0 12px 22px; }
+    li { margin-bottom: 6px; }
+    .muted { color: #79776E; font-size: 13px; }
+    a { color: #0369A1; }
+    code {
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 13px;
+      background: #F6F5F2;
+      padding: 1px 6px;
+      border-radius: 4px;
+    }
+    hr {
+      border: 0;
+      border-top: 1px solid #E2E0D9;
+      margin: 28px 0;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Term Checker — Privacy Policy</h1>
+    <p class="muted">Last updated: May 18, 2026</p>
+
+    <p>
+      Term Checker is a Chrome extension that shows you a privacy summary
+      for whatever website you are currently visiting. This page describes
+      exactly what the extension does with your data.
+    </p>
+
+    <h2>What the extension reads</h2>
+    <ul>
+      <li>
+        The <strong>domain</strong> of the tab you are currently viewing
+        (for example, <code>example.com</code>) — only when you click
+        the extension icon. The extension does not read the full URL,
+        page contents, form inputs, cookies, or anything else.
+      </li>
+    </ul>
+
+    <h2>What the extension sends</h2>
+    <ul>
+      <li>
+        The domain is sent to our analysis server at
+        <code>terms-vzh0.onrender.com</code> over HTTPS so we can return
+        the saved privacy analysis for that site.
+      </li>
+      <li>
+        If you press the <strong>Request Analysis</strong> button on a
+        site we have not yet covered, that domain is added to our
+        analysis queue. No other information is included.
+      </li>
+    </ul>
+
+    <h2>What we store</h2>
+    <ul>
+      <li>
+        On our server: the list of domains that have been requested or
+        analyzed, and the public privacy-policy text we fetched for
+        each. We do not store your IP, account, browsing history, or
+        any identifier that ties a request to you.
+      </li>
+      <li>
+        In the extension itself: a short-lived in-memory cache (session
+        storage) of recent analyses, so opening the popup on the same
+        site twice does not re-hit the server. This cache is cleared
+        when Chrome closes.
+      </li>
+    </ul>
+
+    <h2>What we do not do</h2>
+    <ul>
+      <li>No accounts, no sign-in, no email collection.</li>
+      <li>No cookies set by the extension.</li>
+      <li>No third-party analytics, advertising, or tracking SDKs.</li>
+      <li>No selling, renting, or sharing of data with anyone.</li>
+      <li>No remote code: the extension ships with all its code bundled.</li>
+    </ul>
+
+    <h2>Permissions, explained</h2>
+    <ul>
+      <li>
+        <code>activeTab</code> — lets the extension read the domain of
+        the tab you are on when you click the icon. Without this, the
+        extension cannot know which site to look up.
+      </li>
+      <li>
+        <code>storage</code> — used for the short-lived in-memory
+        cache described above.
+      </li>
+      <li>
+        <code>host_permissions: https://terms-vzh0.onrender.com/*</code>
+        — lets the extension talk to our analysis server.
+      </li>
+    </ul>
+
+    <h2>Contact</h2>
+    <p>
+      Questions, requests, or want a domain removed from our analysis
+      queue? Email <a href="mailto:me@deetercesler.com">me@deetercesler.com</a>.
+    </p>
+
+    <hr>
+    <p class="muted">
+      This policy applies only to the Term Checker browser extension and
+      its companion server. It does not cover the privacy policies of
+      the third-party websites Term Checker analyzes.
+    </p>
+  </main>
+</body>
+</html>

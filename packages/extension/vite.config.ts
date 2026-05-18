@@ -1,7 +1,8 @@
 import { defineConfig } from 'vite';
+import { readFileSync, writeFileSync } from 'fs';
 import { resolve } from 'path';
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
@@ -18,13 +19,18 @@ export default defineConfig({
     },
   },
   plugins: [
-    // Copy manifest and static files
     {
-      name: 'copy-static',
-      generateBundle() {
-        // manifest and popup.html are copied via publicDir
+      name: 'dev-manifest-host-permissions',
+      closeBundle() {
+        if (mode !== 'development') return;
+        const manifestPath = resolve(__dirname, 'dist/manifest.json');
+        const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+        if (!manifest.host_permissions.includes('http://localhost:3000/*')) {
+          manifest.host_permissions.push('http://localhost:3000/*');
+          writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n');
+        }
       },
     },
   ],
   publicDir: 'public',
-});
+}));
