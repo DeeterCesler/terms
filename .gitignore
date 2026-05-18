@@ -37,3 +37,7 @@ coverage/
 TODO.md
 code-quality.md
 code-audit.md
+
+# Scratch
+scripts/p1-batch-urls.txt
+scripts/_*
