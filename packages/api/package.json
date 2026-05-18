@@ -9,7 +9,6 @@
     "start": "node dist/index.js"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.26.0",
     "@mozilla/readability": "^0.5.0",
     "@term-checker/shared": "*",
     "cors": "^2.8.5",

@@ -13,8 +13,6 @@ services:
         fromDatabase:
           name: terms-db
           property: connectionString
-      - key: ANTHROPIC_API_KEY
-        sync: false
       - key: ADMIN_SECRET
         sync: false
       - key: CORS_ORIGIN
@@ -22,11 +20,7 @@ services:
       - key: RATE_LIMIT_WINDOW_MS
         value: "60000"
       - key: RATE_LIMIT_MAX
-        value: "30"
-      - key: WORKER_POLL_INTERVAL_MS
-        value: "5000"
-      - key: WORKER_STALE_JOB_TIMEOUT_MS
-        value: "600000"
+        value: "240"
 
 databases:
   - name: terms-db

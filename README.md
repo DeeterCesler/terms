@@ -1,6 +1,6 @@
 # Term Checker
 
-A privacy policy analyzer: crawls and AI-summarizes privacy policies for websites, surfaced via a Chrome extension popup.
+A privacy policy analyzer: privacy policies are fetched, analyzed by Claude (locally), and inserted directly into a Postgres database. A Chrome extension popup surfaces the stored analysis. The deployed API is read-only — there is no server-side LLM call.
 
 ## Getting Started
 
@@ -17,10 +17,10 @@ cp .env.example .env
 ```
 
 Edit `.env` and set:
-- `ANTHROPIC_API_KEY` — your Anthropic API key
-- `ADMIN_SECRET` — a random secret (32+ chars) for protecting admin routes
+- `DATABASE_URL` — Postgres connection string (Neon, Docker, etc.)
+- `ADMIN_SECRET` — random secret (32+ chars) for protecting admin GET/DELETE endpoints
 
-### 3. Start Postgres
+### 3. Start Postgres (skip if using Neon)
 
 ```bash
 docker-compose up postgres
@@ -38,20 +38,31 @@ npm run migrate
 npm run dev:api
 ```
 
-The API will be available at `http://localhost:3000`.
+The API will be available at `http://localhost:3000`. It only serves read endpoints; writes happen via the local-analysis flow below.
 
-### 6. Submit a site for analysis
+### 6. Analyze a site (local Claude flow)
+
+The full per-site flow:
+
+1. **Fetch policy text:**
+   ```bash
+   npx tsx scripts/fetch-text.ts [--headless] <policyUrl> /tmp/<domain>.policy.txt
+   ```
+2. **Analyze it yourself** (or hand the text to Claude) and produce a JSON object matching the analysis schema. Write it to `/tmp/<domain>.analysis.json`.
+3. **Insert into the DB:**
+   ```bash
+   npx tsx scripts/insert-direct.ts \
+     --domain <domain> \
+     --url <policyUrl> \
+     --text-file /tmp/<domain>.policy.txt \
+     --analysis-file /tmp/<domain>.analysis.json \
+     --name "<display name>"
+   ```
+
+For bulk fetching (step 1 only) given a `<url> <domain>` per-line file:
 
 ```bash
-API_BASE_URL=http://localhost:3000 ADMIN_SECRET=your-secret \
-  npx tsx packages/admin/src/cli.ts submit https://example.com/privacy
-```
-
-Check status:
-
-```bash
-API_BASE_URL=http://localhost:3000 ADMIN_SECRET=your-secret \
-  npx tsx packages/admin/src/cli.ts status example.com
+bash scripts/run-batch.sh < scripts/batch-urls.txt
 ```
 
 ### 7. Load the Chrome extension
@@ -65,17 +76,13 @@ The extension icon will appear in your toolbar. Navigate to any analyzed site an
 
 ## Admin CLI
 
+The CLI is read-only after the API was stripped to read-only. To add a site, use the local-analysis flow above.
+
 ```bash
-# Alias for convenience (after building)
 alias tca="npx tsx packages/admin/src/cli.ts"
 
-tca submit https://example.com/privacy    # Register + queue a site
-tca reprocess example.com                 # Re-crawl (skips if unchanged)
-tca reprocess example.com --force         # Force re-analysis
-tca status example.com                    # Show latest analysis
-tca list                                  # List all sites
-tca list --queue --status=pending         # Show pending queue items
-tca bulk ./urls.txt                       # Submit many URLs from a file
+tca status example.com    # Show latest analysis from the DB
+tca list                  # List all sites
 ```
 
 ## Project Structure
@@ -83,8 +90,8 @@ tca bulk ./urls.txt                       # Submit many URLs from a file
 ```
 packages/
   shared/     Zod schemas + TypeScript types
-  api/        Express REST API + background worker
-  admin/      CLI tool for managing sites
+  api/        Express REST API (read-only public + admin GETs)
+  admin/      CLI tool for inspecting the DB
   extension/  Chrome MV3 popup extension
 ```
 
@@ -96,8 +103,7 @@ Public endpoints (rate-limited):
 - `GET /health`
 
 Admin endpoints (require `X-Admin-Secret` header):
-- `POST /admin/sites` — register a new site
-- `POST /admin/sites/:domain/reprocess` — re-crawl/re-analyze
 - `GET /admin/sites` — list all sites
-- `GET /admin/queue` — view processing queue
+- `GET /admin/sites/:domain/sources` — list policy sources for a site
 - `DELETE /admin/sites/:domain` — remove a site
+- `GET|POST|DELETE /admin/candidates[...]` — manage the wishlist of sites to eventually analyze
