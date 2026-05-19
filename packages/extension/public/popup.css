@@ -155,7 +155,9 @@ main { padding: 12px 14px; }
 
 /* Highlights */
 .highlights-section {
-  margin-bottom: 10px;
+  /* sits inside .findings between Data anonymized and Data retention,
+     so spacing comes from the flex `gap` instead of a fixed margin */
+  margin: 4px 0;
 }
 .highlights-list {
   list-style: none;
