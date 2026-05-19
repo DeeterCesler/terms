@@ -5,6 +5,11 @@ export const FindingSchema = z.object({
   evidence: z.string().nullable(),
 });
 
+export const HighlightSchema = z.object({
+  kind: z.enum(['good', 'bad']),
+  text: z.string().min(1),
+});
+
 export const AnalysisResultSchema = z.object({
   shares_with_third_parties: FindingSchema,
   sells_data: FindingSchema,
@@ -13,9 +18,11 @@ export const AnalysisResultSchema = z.object({
   user_rights: z.array(z.string()),
   overall_score: z.number().int().min(1).max(10),
   summary: z.string(),
+  highlights: z.array(HighlightSchema).optional(),
 });
 
 export type Finding = z.infer<typeof FindingSchema>;
+export type Highlight = z.infer<typeof HighlightSchema>;
 export type AnalysisResult = z.infer<typeof AnalysisResultSchema>;
 
 export const SCORE_TIERS = {

@@ -13,7 +13,13 @@ export interface CheckResponse {
     userRights: string[];
     overallScore: number;
     summary: string;
+    highlights: Array<{ kind: 'good' | 'bad'; text: string }>;
   };
+}
+
+export interface RankingsResponse {
+  best: Array<{ domain: string; overallScore: number; summary: string }>;
+  worst: Array<{ domain: string; overallScore: number; summary: string }>;
 }
 
 export interface CheckNotFoundResponse {

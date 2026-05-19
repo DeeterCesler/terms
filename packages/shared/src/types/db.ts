@@ -54,6 +54,7 @@ export interface PolicyAnalysisRow {
   user_rights: string[] | null;
   overall_score: number | null;
   summary: string | null;
+  highlights: Array<{ kind: 'good' | 'bad'; text: string }> | null;
   raw_response: unknown;
   status: 'pending' | 'processing' | 'done' | 'failed';
   error_message: string | null;
