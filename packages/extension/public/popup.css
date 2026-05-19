@@ -25,6 +25,7 @@ header {
 }
 
 .logo { font-size: 14px; }
+.logo-img { width: 20px; height: 20px; border-radius: 4px; display: block; }
 
 main { padding: 12px 14px; }
 
