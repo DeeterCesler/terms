@@ -4,9 +4,6 @@
   "version": "1.0.0",
   "description": "Instantly see how a website handles your data — privacy score, key findings, and plain-English summary.",
   "permissions": ["activeTab", "storage"],
-  "host_permissions": [
-    "https://terms-vzh0.onrender.com/*"
-  ],
   "action": {
     "default_popup": "popup.html",
     "default_title": "Term Checker",

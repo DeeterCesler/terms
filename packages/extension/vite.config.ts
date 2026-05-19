@@ -25,6 +25,7 @@ export default defineConfig(({ mode }) => ({
         if (mode !== 'development') return;
         const manifestPath = resolve(__dirname, 'dist/manifest.json');
         const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+        manifest.host_permissions ??= [];
         if (!manifest.host_permissions.includes('http://localhost:3000/*')) {
           manifest.host_permissions.push('http://localhost:3000/*');
           writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n');
