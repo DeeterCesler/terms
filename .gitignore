@@ -30,6 +30,9 @@ Thumbs.db
 packages/extension/dist/
 packages/extension/.output/
 
+# Extension release artifacts (built from dist/, uploaded to the Web Store)
+packages/extension/*.zip
+
 # Test coverage
 coverage/
 
