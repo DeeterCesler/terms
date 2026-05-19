@@ -118,6 +118,26 @@ function renderFound(domain: string, result: any) {
     rightsEl.appendChild(ul);
   }
 
+  const highlightsSection = document.getElementById('highlights-section') as HTMLElement;
+  const highlightsList = document.getElementById('highlights-list') as HTMLElement;
+  highlightsList.replaceChildren();
+  const highlights: Array<{ kind: 'good' | 'bad'; text: string }> = Array.isArray(a.highlights) ? a.highlights : [];
+  if (highlights.length === 0) {
+    highlightsSection.classList.add('hidden');
+  } else {
+    highlightsSection.classList.remove('hidden');
+    for (const h of highlights) {
+      const li = document.createElement('li');
+      li.className = h.kind === 'good' ? 'good' : 'bad';
+      const kind = document.createElement('span');
+      kind.className = 'hl-kind';
+      kind.textContent = h.kind === 'good' ? 'Good' : 'Watch';
+      li.appendChild(kind);
+      li.appendChild(document.createTextNode(h.text));
+      highlightsList.appendChild(li);
+    }
+  }
+
   const summaryEl = document.getElementById('summary-text') as HTMLElement;
   summaryEl.replaceChildren();
   const summary = (a.summary ?? '').trim();
