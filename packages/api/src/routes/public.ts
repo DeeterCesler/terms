@@ -1,10 +1,10 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { getSiteByDomain } from '../db/queries/sites.js';
-import { getLatestAnalysis, getAnalysisHistory } from '../db/queries/analyses.js';
+import { getLatestAnalysis, getAnalysisHistory, getRankings } from '../db/queries/analyses.js';
 import { addCandidate } from '../db/queries/candidates.js';
 import { normalizeDomain } from '../utils/domain.js';
-import type { CheckResult, HistoryEntry, PolicyAnalysisRow } from '@term-checker/shared';
+import type { CheckResult, HistoryEntry, PolicyAnalysisRow, RankingsResponse } from '@term-checker/shared';
 
 export const publicRouter = Router();
 
@@ -18,8 +18,22 @@ function rowToAnalysis(row: PolicyAnalysisRow | null) {
     userRights: (row.user_rights as string[]) ?? [],
     overallScore: row.overall_score!,
     summary: row.summary ?? '',
+    highlights: (row.highlights as Array<{ kind: 'good' | 'bad'; text: string }>) ?? [],
   };
 }
+
+publicRouter.get('/rankings', async (_req, res, next) => {
+  try {
+    const { best, worst } = await getRankings(5);
+    const result: RankingsResponse = {
+      best: best.map(r => ({ domain: r.domain, overallScore: r.overall_score, summary: r.summary })),
+      worst: worst.map(r => ({ domain: r.domain, overallScore: r.overall_score, summary: r.summary })),
+    };
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
 
 publicRouter.get('/check/:domain', async (req, res, next) => {
   try {

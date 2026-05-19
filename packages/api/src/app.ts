@@ -28,6 +28,10 @@ export function createApp() {
     res.sendFile(join(__dirname, '../public/privacy.html'));
   });
 
+  app.get('/rankings', (_req, res) => {
+    res.sendFile(join(__dirname, '../public/rankings.html'));
+  });
+
   app.get('/health', (_req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
   });
