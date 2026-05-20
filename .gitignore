@@ -41,6 +41,5 @@ TODO.md
 code-quality.md
 code-audit.md
 
-# Scratch
-scripts/p1-batch-urls.txt
-scripts/_*
+# Scripts (kept local-only; open-source repo hides scraping/seeding internals)
+scripts/
