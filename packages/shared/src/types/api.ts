@@ -25,6 +25,7 @@ export interface RankingsResponse {
 export interface CheckNotFoundResponse {
   found: false;
   domain: string;
+  requested?: { at: string };
 }
 
 export type CheckResult = CheckResponse | CheckNotFoundResponse;

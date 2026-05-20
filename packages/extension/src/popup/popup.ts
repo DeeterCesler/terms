@@ -46,9 +46,13 @@ async function getCurrentDomain(): Promise<string | null> {
   });
 }
 
+function cacheKeyFor(domain: string): string {
+  return `cache:${domain}`;
+}
+
 async function fetchAnalysis(domain: string): Promise<any> {
   // Check session cache first
-  const cacheKey = `cache:${domain}`;
+  const cacheKey = cacheKeyFor(domain);
   const cached = await chrome.storage.session.get(cacheKey);
   if (cached[cacheKey]) {
     const { data, ts } = cached[cacheKey] as { data: any; ts: number };
@@ -186,6 +190,8 @@ async function requestAnalysis(domain: string, url: string | null) {
     btn.textContent = 'Requested';
     status.textContent = "Thanks — we'll analyze this site soon.";
     status.classList.remove('hidden');
+    // Invalidate cache so the next popup open reflects the queued state.
+    await chrome.storage.session.remove(cacheKeyFor(domain));
   } catch {
     btn.disabled = false;
     btn.textContent = 'Request analysis';
@@ -193,6 +199,46 @@ async function requestAnalysis(domain: string, url: string | null) {
     status.classList.remove('hidden');
     status.classList.add('error');
   }
+}
+
+function formatRequestedDate(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString();
+}
+
+function renderNotFound(domain: string, requested: { at: string } | undefined) {
+  (document.getElementById('nf-domain') as HTMLElement).textContent = domain;
+
+  const msgEl = document.getElementById('nf-msg') as HTMLElement;
+  const requestedEl = document.getElementById('nf-requested') as HTMLElement;
+  const btn = document.getElementById('request-btn') as HTMLButtonElement;
+  const statusEl = document.getElementById('request-status') as HTMLElement;
+
+  // Reset to default state in case the popup was opened against a different domain previously.
+  statusEl.classList.add('hidden');
+  statusEl.classList.remove('error');
+  statusEl.textContent = '';
+
+  if (requested) {
+    msgEl.textContent = "We haven't analyzed this site yet, but it's in the queue.";
+    const when = formatRequestedDate(requested.at);
+    requestedEl.textContent = when
+      ? `Already requested on ${when}. We'll analyze it soon — no need to submit again.`
+      : "Already requested. We'll analyze it soon — no need to submit again.";
+    requestedEl.classList.remove('hidden');
+    btn.classList.add('hidden');
+    btn.disabled = true;
+  } else {
+    msgEl.textContent = "We haven't analyzed this site yet.";
+    requestedEl.classList.add('hidden');
+    requestedEl.textContent = '';
+    btn.classList.remove('hidden');
+    btn.disabled = false;
+    btn.textContent = 'Request analysis';
+  }
+
+  show('state-not-found');
 }
 
 async function main() {
@@ -216,12 +262,13 @@ async function main() {
     const result = await fetchAnalysis(domain);
 
     if (!result.found) {
-      (document.getElementById('nf-domain') as HTMLElement).textContent = domain;
-      show('state-not-found');
+      renderNotFound(domain, result.requested);
 
-      const tabUrl = await getCurrentTabUrl();
-      const btn = document.getElementById('request-btn');
-      btn?.addEventListener('click', () => requestAnalysis(domain, tabUrl));
+      if (!result.requested) {
+        const tabUrl = await getCurrentTabUrl();
+        const btn = document.getElementById('request-btn');
+        btn?.addEventListener('click', () => requestAnalysis(domain, tabUrl));
+      }
       return;
     }
 

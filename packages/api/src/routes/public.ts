@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { getSiteByDomain } from '../db/queries/sites.js';
 import { getLatestAnalysis, getAnalysisHistory, getRankings } from '../db/queries/analyses.js';
-import { addCandidate } from '../db/queries/candidates.js';
+import { addCandidate, getCandidateByDomain } from '../db/queries/candidates.js';
 import { normalizeDomain } from '../utils/domain.js';
 import type { CheckResult, HistoryEntry, PolicyAnalysisRow, RankingsResponse } from '@term-checker/shared';
 
@@ -45,14 +45,20 @@ publicRouter.get('/check/:domain', async (req, res, next) => {
 
     const site = await getSiteByDomain(domain);
     if (!site) {
-      const result: CheckResult = { found: false, domain };
+      const candidate = await getCandidateByDomain(domain);
+      const result: CheckResult = candidate
+        ? { found: false, domain, requested: { at: candidate.added_at.toISOString() } }
+        : { found: false, domain };
       res.json(result);
       return;
     }
 
     const analysis = await getLatestAnalysis(site.id);
     if (!analysis) {
-      const result: CheckResult = { found: false, domain };
+      const candidate = await getCandidateByDomain(domain);
+      const result: CheckResult = candidate
+        ? { found: false, domain, requested: { at: candidate.added_at.toISOString() } }
+        : { found: false, domain };
       res.json(result);
       return;
     }

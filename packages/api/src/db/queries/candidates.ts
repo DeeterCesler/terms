@@ -30,6 +30,20 @@ export async function listPendingCandidates(): Promise<PolicyCandidateRow[]> {
   return rows;
 }
 
+export async function getCandidateByDomain(
+  domain: string,
+  policyType: PolicyType = 'privacy_policy',
+): Promise<PolicyCandidateRow | null> {
+  const { rows } = await pool.query<PolicyCandidateRow>(
+    `SELECT * FROM policy_candidates
+     WHERE domain = $1 AND policy_type = $2
+     ORDER BY added_at ASC
+     LIMIT 1`,
+    [domain, policyType]
+  );
+  return rows[0] ?? null;
+}
+
 export async function addCandidate(
   domain: string,
   policyType: PolicyType,
