@@ -42,4 +42,6 @@ code-quality.md
 code-audit.md
 
 # Scripts (kept local-only; open-source repo hides scraping/seeding internals)
-scripts/
+scripts/*
+# Exception: DB schema migration runner is architecture
+!scripts/migrate.ts
