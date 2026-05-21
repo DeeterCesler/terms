@@ -21,6 +21,38 @@
       max-width: 840px;
       margin: 0 auto;
     }
+    .page-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: #1C1B18;
+    }
+    .brand-mark {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      display: block;
+    }
+    .brand-name {
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: -.2px;
+    }
+    .page-nav { display: flex; gap: 16px; }
+    .nav-link {
+      color: #57554F;
+      font-size: 14px;
+      text-decoration: none;
+    }
+    .nav-link:hover { color: #1C1B18; text-decoration: underline; }
     h1 {
       font-size: 24px;
       font-weight: 600;
@@ -110,6 +142,15 @@
 </head>
 <body>
   <main>
+    <div class="page-header">
+      <a class="brand" href="/">
+        <img class="brand-mark" src="/icons/icon128.png" alt="">
+        <span class="brand-name">Term Checker</span>
+      </a>
+      <nav class="page-nav">
+        <a class="nav-link" href="/privacy">Privacy Policy</a>
+      </nav>
+    </div>
     <h1>Site Rankings</h1>
     <p class="lede">Privacy scores from our latest analysis of each site. Updated as new analyses land.</p>
     <div class="grid">
