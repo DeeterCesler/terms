@@ -71,41 +71,47 @@ export async function updateAnalysisHighlights(
   );
 }
 
+// Phrases the analyzer uses when the fetched text isn't a real privacy policy
+// (homepage shell, 404, parking page, support center, etc.). Excluding these
+// from the worst-5 list keeps fetch failures from being charged against the
+// site they're standing in for.
+const FETCH_ISSUE_REGEX =
+  '(fetched (content|text)|not (a|the) privacy policy|404 error|marketing homepage|landing page|re-?fetch|re-?mapped|hugedomains|domain[- ]for[- ]sale|support center menu|legals?[- ]index|table of contents|shell html|product nav|cookie banner|nav garbage|broken fetch|wrong document|domain redirected)';
+
 export async function getRankings(limit: number): Promise<{
   best: Array<{ domain: string; overall_score: number; summary: string }>;
   worst: Array<{ domain: string; overall_score: number; summary: string }>;
 }> {
   // Latest done analysis per site, then top/bottom by overall_score.
   // Ties broken by most recent analysis (so freshly-rescored sites win).
+  // Bad fetches (homepage shells, 404s, parking pages) are excluded from the
+  // worst list — a 1 because we couldn't fetch the policy is our fault, not
+  // the site's. The same filter also runs on best for symmetry.
+  const baseQuery = (direction: 'DESC' | 'ASC') => `
+    SELECT s.domain, pa.overall_score, pa.summary
+    FROM policy_analyses pa
+    JOIN sites s ON s.id = pa.site_id
+    JOIN policies p ON p.id = pa.policy_id
+    JOIN (
+      SELECT site_id, MAX(analyzed_at) AS latest
+      FROM policy_analyses
+      WHERE status = 'done' AND overall_score IS NOT NULL
+      GROUP BY site_id
+    ) latest ON latest.site_id = pa.site_id AND latest.latest = pa.analyzed_at
+    WHERE pa.status = 'done'
+      AND s.domain <> 'terms-vzh0.onrender.com'
+      AND p.char_count >= 2000
+      AND COALESCE(pa.summary, '') !~* $2
+    ORDER BY pa.overall_score ${direction}, pa.analyzed_at DESC
+    LIMIT $1`;
+
   const { rows: best } = await pool.query<{ domain: string; overall_score: number; summary: string }>(
-    `SELECT s.domain, pa.overall_score, pa.summary
-     FROM policy_analyses pa
-     JOIN sites s ON s.id = pa.site_id
-     JOIN (
-       SELECT site_id, MAX(analyzed_at) AS latest
-       FROM policy_analyses
-       WHERE status = 'done' AND overall_score IS NOT NULL
-       GROUP BY site_id
-     ) latest ON latest.site_id = pa.site_id AND latest.latest = pa.analyzed_at
-     WHERE pa.status = 'done' AND s.domain <> 'terms-vzh0.onrender.com'
-     ORDER BY pa.overall_score DESC, pa.analyzed_at DESC
-     LIMIT $1`,
-    [limit]
+    baseQuery('DESC'),
+    [limit, FETCH_ISSUE_REGEX]
   );
   const { rows: worst } = await pool.query<{ domain: string; overall_score: number; summary: string }>(
-    `SELECT s.domain, pa.overall_score, pa.summary
-     FROM policy_analyses pa
-     JOIN sites s ON s.id = pa.site_id
-     JOIN (
-       SELECT site_id, MAX(analyzed_at) AS latest
-       FROM policy_analyses
-       WHERE status = 'done' AND overall_score IS NOT NULL
-       GROUP BY site_id
-     ) latest ON latest.site_id = pa.site_id AND latest.latest = pa.analyzed_at
-     WHERE pa.status = 'done' AND s.domain <> 'terms-vzh0.onrender.com'
-     ORDER BY pa.overall_score ASC, pa.analyzed_at DESC
-     LIMIT $1`,
-    [limit]
+    baseQuery('ASC'),
+    [limit, FETCH_ISSUE_REGEX]
   );
   return { best, worst };
 }
