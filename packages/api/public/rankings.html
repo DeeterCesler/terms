@@ -111,76 +111,13 @@
     <div class="grid">
       <section class="best">
         <h2>Best 5</h2>
-        <div id="best"><p class="empty">Loading…</p></div>
+        <!--BEST_ROWS-->
       </section>
       <section class="worst">
         <h2>Worst 5</h2>
-        <div id="worst"><p class="empty">Loading…</p></div>
+        <!--WORST_ROWS-->
       </section>
     </div>
   </main>
-  <script>
-    function tierClass(score) {
-      if (score >= 8) return 'good';
-      if (score >= 5) return 'fair';
-      return 'poor';
-    }
-
-    function render(target, list) {
-      const el = document.getElementById(target);
-      el.replaceChildren();
-      if (!Array.isArray(list) || list.length === 0) {
-        const p = document.createElement('p');
-        p.className = 'empty';
-        p.textContent = 'No sites yet.';
-        el.appendChild(p);
-        return;
-      }
-      list.forEach(function (item, i) {
-        const row = document.createElement('div');
-        row.className = 'row';
-
-        const rank = document.createElement('div');
-        rank.className = 'rank';
-        rank.textContent = '#' + (i + 1);
-        row.appendChild(rank);
-
-        const badge = document.createElement('div');
-        badge.className = 'badge ' + tierClass(item.overallScore);
-        badge.textContent = String(item.overallScore);
-        row.appendChild(badge);
-
-        const meta = document.createElement('div');
-        meta.className = 'meta';
-        const dom = document.createElement('div');
-        dom.className = 'domain';
-        dom.textContent = item.domain;
-        meta.appendChild(dom);
-        const sum = document.createElement('div');
-        sum.className = 'summary';
-        sum.textContent = item.summary || '';
-        meta.appendChild(sum);
-        row.appendChild(meta);
-
-        el.appendChild(row);
-      });
-    }
-
-    fetch('/api/v1/rankings')
-      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-      .then(function (data) {
-        render('best', data.best);
-        render('worst', data.worst);
-      })
-      .catch(function (err) {
-        const e = document.getElementById('best');
-        e.replaceChildren();
-        const p = document.createElement('p');
-        p.className = 'err';
-        p.textContent = 'Could not load rankings: ' + err.message;
-        e.appendChild(p);
-        document.getElementById('worst').replaceChildren();
-      });
-  </script>
 </body>
 </html>
