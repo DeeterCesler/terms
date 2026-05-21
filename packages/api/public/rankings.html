@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Term Checker — Rankings</title>
+  <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon128.png">
+  <link rel="icon" type="image/png" sizes="48x48" href="/icons/icon48.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/icons/icon16.png">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -31,15 +34,16 @@
     }
     .grid {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
       gap: 20px;
     }
-    @media (max-width: 720px) { .grid { grid-template-columns: 1fr; } }
+    @media (max-width: 720px) { .grid { grid-template-columns: minmax(0, 1fr); } }
     section {
       background: #FFFFFF;
       border: 1px solid #E2E0D9;
       border-radius: 10px;
       padding: 20px 22px;
+      min-width: 0;
     }
     h2 {
       font-size: 13px;

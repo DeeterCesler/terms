@@ -66,6 +66,11 @@ export function createApp() {
   app.use(express.json());
 
   app.use('/admin-ui', express.static(join(__dirname, '../public')));
+  app.use('/icons', express.static(join(__dirname, '../public/icons')));
+
+  app.get('/favicon.ico', (_req, res) => {
+    res.type('image/png').sendFile(join(__dirname, '../public/icons/icon128.png'));
+  });
 
   app.get('/privacy', (_req, res) => {
     res.sendFile(join(__dirname, '../public/privacy.html'));
