@@ -4,11 +4,14 @@ import type { PolicyAnalysisRow, AnalysisResult } from '@term-checker/shared';
 export async function getLatestAnalysis(
   siteId: string,
 ): Promise<(PolicyAnalysisRow & { policy_url: string }) | null> {
+  // Join through policy_source_sites so shared corporate policies (e.g. Disney
+  // covering espn.com, disneyplus.com, etc.) surface for every brand site.
   const { rows } = await pool.query<PolicyAnalysisRow & { policy_url: string }>(
     `SELECT pa.*, ps.url AS policy_url
      FROM policy_analyses pa
      JOIN policy_sources ps ON ps.id = pa.policy_source_id
-     WHERE pa.site_id = $1 AND pa.status = 'done'
+     JOIN policy_source_sites pss ON pss.policy_source_id = pa.policy_source_id
+     WHERE pss.site_id = $1 AND pa.status = 'done'
      ORDER BY pa.analyzed_at DESC
      LIMIT 1`,
     [siteId]
@@ -18,9 +21,11 @@ export async function getLatestAnalysis(
 
 export async function getAnalysisHistory(siteId: string): Promise<PolicyAnalysisRow[]> {
   const { rows } = await pool.query<PolicyAnalysisRow>(
-    `SELECT * FROM policy_analyses
-     WHERE site_id = $1 AND status = 'done'
-     ORDER BY analyzed_at DESC`,
+    `SELECT DISTINCT pa.*
+     FROM policy_analyses pa
+     JOIN policy_source_sites pss ON pss.policy_source_id = pa.policy_source_id
+     WHERE pss.site_id = $1 AND pa.status = 'done'
+     ORDER BY pa.analyzed_at DESC`,
     [siteId]
   );
   return rows;
@@ -78,38 +83,68 @@ export async function updateAnalysisHighlights(
 const FETCH_ISSUE_REGEX =
   '(fetched (content|text)|not (a|the) privacy policy|404 error|marketing homepage|landing page|re-?fetch|re-?mapped|hugedomains|domain[- ]for[- ]sale|support center menu|legals?[- ]index|table of contents|shell html|product nav|cookie banner|nav garbage|broken fetch|wrong document|domain redirected)';
 
+export interface RankingRow {
+  domain: string;
+  overall_score: number;
+  summary: string;
+  shared_domains: string[];
+}
+
 export async function getRankings(limit: number): Promise<{
-  best: Array<{ domain: string; overall_score: number; summary: string }>;
-  worst: Array<{ domain: string; overall_score: number; summary: string }>;
+  best: RankingRow[];
+  worst: RankingRow[];
 }> {
-  // Latest done analysis per site, then top/bottom by overall_score.
-  // Ties broken by most recent analysis (so freshly-rescored sites win).
-  // Bad fetches (homepage shells, 404s, parking pages) are excluded from the
-  // worst list — a 1 because we couldn't fetch the policy is our fault, not
-  // the site's. The same filter also runs on best for symmetry.
+  // Dedupe by policy_source_id so a shared corporate policy (Disney covering
+  // disney.com, disneyplus.com, espn.com) is one row, not three. The primary
+  // site (policy_source_sites.is_primary) is what gets displayed; the other
+  // member domains travel along as shared_domains for the "Also covers" badge.
+  // Ties broken by most recent analysis (so freshly-rescored sites win). Bad
+  // fetches (homepage shells, 404s, parking pages) are excluded from the worst
+  // list. Same filter runs on best for symmetry.
   const baseQuery = (direction: 'DESC' | 'ASC') => `
-    SELECT s.domain, pa.overall_score, pa.summary
-    FROM policy_analyses pa
-    JOIN sites s ON s.id = pa.site_id
-    JOIN policies p ON p.id = pa.policy_id
-    JOIN (
-      SELECT site_id, MAX(analyzed_at) AS latest
+    WITH latest AS (
+      SELECT policy_source_id, MAX(analyzed_at) AS latest_at
       FROM policy_analyses
       WHERE status = 'done' AND overall_score IS NOT NULL
-      GROUP BY site_id
-    ) latest ON latest.site_id = pa.site_id AND latest.latest = pa.analyzed_at
+      GROUP BY policy_source_id
+    ),
+    primary_site AS (
+      SELECT pss.policy_source_id, s.domain
+      FROM policy_source_sites pss
+      JOIN sites s ON s.id = pss.site_id
+      WHERE pss.is_primary = TRUE
+    ),
+    shared AS (
+      SELECT pss.policy_source_id,
+             COALESCE(
+               array_agg(s.domain ORDER BY s.domain) FILTER (WHERE pss.is_primary = FALSE),
+               ARRAY[]::text[]
+             ) AS others
+      FROM policy_source_sites pss
+      JOIN sites s ON s.id = pss.site_id
+      GROUP BY pss.policy_source_id
+    )
+    SELECT ps_site.domain,
+           pa.overall_score,
+           pa.summary,
+           shared.others AS shared_domains
+    FROM policy_analyses pa
+    JOIN latest ON latest.policy_source_id = pa.policy_source_id AND latest.latest_at = pa.analyzed_at
+    JOIN policies p ON p.id = pa.policy_id
+    JOIN primary_site ps_site ON ps_site.policy_source_id = pa.policy_source_id
+    JOIN shared ON shared.policy_source_id = pa.policy_source_id
     WHERE pa.status = 'done'
-      AND s.domain <> 'terms-vzh0.onrender.com'
+      AND ps_site.domain <> 'terms-vzh0.onrender.com'
       AND p.char_count >= 2000
       AND COALESCE(pa.summary, '') !~* $2
     ORDER BY pa.overall_score ${direction}, pa.analyzed_at DESC
     LIMIT $1`;
 
-  const { rows: best } = await pool.query<{ domain: string; overall_score: number; summary: string }>(
+  const { rows: best } = await pool.query<RankingRow>(
     baseQuery('DESC'),
     [limit, FETCH_ISSUE_REGEX]
   );
-  const { rows: worst } = await pool.query<{ domain: string; overall_score: number; summary: string }>(
+  const { rows: worst } = await pool.query<RankingRow>(
     baseQuery('ASC'),
     [limit, FETCH_ISSUE_REGEX]
   );

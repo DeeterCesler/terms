@@ -5,6 +5,10 @@ export interface CheckResponse {
   domain: string;
   policyUrl: string;
   lastAnalyzed: string;
+  // Other domains that share the exact same source policy (corporate-wide
+  // statements like Disney covering disney.com, espn.com, etc.). Optional on
+  // the wire so already-shipped extension builds keep working.
+  sharedDomains?: string[];
   analysis: {
     sharesWithThirdParties: { value: boolean | null; evidence: string | null };
     sellsData: { value: boolean | null; evidence: string | null };
@@ -18,8 +22,8 @@ export interface CheckResponse {
 }
 
 export interface RankingsResponse {
-  best: Array<{ domain: string; overallScore: number; summary: string }>;
-  worst: Array<{ domain: string; overallScore: number; summary: string }>;
+  best: Array<{ domain: string; overallScore: number; summary: string; sharedDomains?: string[] }>;
+  worst: Array<{ domain: string; overallScore: number; summary: string; sharedDomains?: string[] }>;
 }
 
 export interface CheckNotFoundResponse {

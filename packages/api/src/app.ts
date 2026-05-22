@@ -30,18 +30,22 @@ function tierClass(score: number): string {
   return 'poor';
 }
 
-function renderRankingRows(list: Array<{ domain: string; overall_score: number; summary: string }>): string {
+function renderRankingRows(list: Array<{ domain: string; overall_score: number; summary: string; shared_domains: string[] }>): string {
   if (!list.length) return '<p class="empty">No sites yet.</p>';
-  return list.map((item, i) => (
-    `<div class="row">` +
+  return list.map((item, i) => {
+    const sharedBadge = item.shared_domains.length > 0
+      ? `<div class="shared-with">Also covers: ${item.shared_domains.map(escapeHtml).join(', ')}</div>`
+      : '';
+    return `<div class="row">` +
       `<div class="rank">#${i + 1}</div>` +
       `<div class="badge ${tierClass(item.overall_score)}">${item.overall_score}</div>` +
       `<div class="meta">` +
         `<div class="domain">${escapeHtml(item.domain)}</div>` +
         `<div class="summary">${escapeHtml(item.summary ?? '')}</div>` +
+        sharedBadge +
       `</div>` +
-    `</div>`
-  )).join('');
+    `</div>`;
+  }).join('');
 }
 
 async function renderRankingsPage(): Promise<string> {

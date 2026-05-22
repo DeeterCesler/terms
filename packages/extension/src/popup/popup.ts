@@ -162,45 +162,6 @@ function renderFound(domain: string, result: any) {
   show('state-found');
 }
 
-async function getCurrentTabUrl(): Promise<string | null> {
-  return new Promise(resolve => {
-    chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
-      resolve(tabs[0]?.url ?? null);
-    });
-  });
-}
-
-async function requestAnalysis(domain: string, url: string | null) {
-  const btn = document.getElementById('request-btn') as HTMLButtonElement | null;
-  const status = document.getElementById('request-status') as HTMLElement | null;
-  if (!btn || !status) return;
-
-  btn.disabled = true;
-  btn.textContent = 'Requesting...';
-  status.classList.add('hidden');
-  status.classList.remove('error');
-
-  try {
-    const res = await fetch(`${API_BASE}/api/v1/request/${domain}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(url ? { url } : {}),
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    btn.textContent = 'Requested';
-    status.textContent = "Thanks — we'll analyze this site soon.";
-    status.classList.remove('hidden');
-    // Invalidate cache so the next popup open reflects the queued state.
-    await chrome.storage.session.remove(cacheKeyFor(domain));
-  } catch {
-    btn.disabled = false;
-    btn.textContent = 'Request analysis';
-    status.textContent = 'Request failed. Try again later.';
-    status.classList.remove('hidden');
-    status.classList.add('error');
-  }
-}
-
 function formatRequestedDate(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
@@ -212,30 +173,30 @@ function renderNotFound(domain: string, requested: { at: string } | undefined) {
 
   const msgEl = document.getElementById('nf-msg') as HTMLElement;
   const requestedEl = document.getElementById('nf-requested') as HTMLElement;
-  const btn = document.getElementById('request-btn') as HTMLButtonElement;
-  const statusEl = document.getElementById('request-status') as HTMLElement;
+  const btn = document.getElementById('request-btn') as HTMLButtonElement | null;
+  const statusEl = document.getElementById('request-status') as HTMLElement | null;
 
-  // Reset to default state in case the popup was opened against a different domain previously.
-  statusEl.classList.add('hidden');
-  statusEl.classList.remove('error');
-  statusEl.textContent = '';
+  if (statusEl) {
+    statusEl.classList.add('hidden');
+    statusEl.classList.remove('error');
+    statusEl.textContent = '';
+  }
+  if (btn) {
+    btn.classList.add('hidden');
+    btn.disabled = true;
+  }
 
   if (requested) {
     msgEl.textContent = "We haven't analyzed this site yet, but it's in the queue.";
     const when = formatRequestedDate(requested.at);
     requestedEl.textContent = when
-      ? `Already requested on ${when}. We'll analyze it soon — no need to submit again.`
-      : "Already requested. We'll analyze it soon — no need to submit again.";
+      ? `Already requested on ${when}. We'll analyze it soon.`
+      : "Already requested. We'll analyze it soon.";
     requestedEl.classList.remove('hidden');
-    btn.classList.add('hidden');
-    btn.disabled = true;
   } else {
     msgEl.textContent = "We haven't analyzed this site yet.";
     requestedEl.classList.add('hidden');
     requestedEl.textContent = '';
-    btn.classList.remove('hidden');
-    btn.disabled = false;
-    btn.textContent = 'Request analysis';
   }
 
   show('state-not-found');
@@ -263,12 +224,6 @@ async function main() {
 
     if (!result.found) {
       renderNotFound(domain, result.requested);
-
-      if (!result.requested) {
-        const tabUrl = await getCurrentTabUrl();
-        const btn = document.getElementById('request-btn');
-        btn?.addEventListener('click', () => requestAnalysis(domain, tabUrl));
-      }
       return;
     }
 
