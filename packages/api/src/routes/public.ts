@@ -27,6 +27,7 @@ function getCachedCheck(domain: string): CheckResult | undefined {
 }
 
 function setCachedCheck(domain: string, value: CheckResult): void {
+  if (!value.found) return;
   if (checkCache.has(domain)) checkCache.delete(domain);
   else if (checkCache.size >= CHECK_CACHE_MAX) {
     const oldest = checkCache.keys().next().value;
