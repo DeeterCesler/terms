@@ -9,7 +9,7 @@ import { errorHandler } from './middleware/errorHandler.js';
 import { publicRouter } from './routes/public.js';
 import { adminRouter } from './routes/admin.js';
 import { config } from './config.js';
-import { getRankings } from './db/queries/analyses.js';
+import { getRankings, getCoverageStats } from './db/queries/analyses.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -48,12 +48,35 @@ function renderRankingRows(list: Array<{ domain: string; overall_score: number; 
   }).join('');
 }
 
+function formatRelativeUpdate(d: Date | null): string {
+  if (!d) return 'No analyses yet';
+  const diffMs = Date.now() - d.getTime();
+  const day = 86400_000;
+  if (diffMs < day) return 'Updated today';
+  if (diffMs < 2 * day) return 'Updated yesterday';
+  if (diffMs < 30 * day) return `Updated ${Math.floor(diffMs / day)} days ago`;
+  return `Updated ${d.toISOString().slice(0, 10)}`;
+}
+
+function renderStatsStrip(stats: { sites_covered: number; shared_families: number; last_analyzed_at: Date | null }): string {
+  const sites = stats.sites_covered.toLocaleString();
+  const families = stats.shared_families.toLocaleString();
+  const updated = escapeHtml(formatRelativeUpdate(stats.last_analyzed_at));
+  return (
+    `<div class="stat"><span class="stat-value">${sites}</span><span class="stat-label">Sites analyzed</span></div>` +
+    `<div class="stat"><span class="stat-value">${families}</span><span class="stat-label">Shared-policy families</span></div>` +
+    `<div class="stat"><span class="stat-value stat-text">${updated}</span><span class="stat-label">Most recent</span></div>`
+  );
+}
+
 async function renderRankingsPage(): Promise<string> {
-  const [template, { best, worst }] = await Promise.all([
+  const [template, { best, worst }, stats] = await Promise.all([
     readFile(join(__dirname, '../public/rankings.html'), 'utf8'),
     getRankings(5),
+    getCoverageStats(),
   ]);
   return template
+    .replace('<!--STATS_STRIP-->', renderStatsStrip(stats))
     .replace('<!--BEST_ROWS-->', renderRankingRows(best))
     .replace('<!--WORST_ROWS-->', renderRankingRows(worst));
 }

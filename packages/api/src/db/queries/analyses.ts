@@ -151,6 +151,61 @@ export async function getRankings(limit: number): Promise<{
   return { best, worst };
 }
 
+export interface CoverageStats {
+  sites_covered: number;
+  shared_families: number;
+  last_analyzed_at: Date | null;
+}
+
+export async function getCoverageStats(): Promise<CoverageStats> {
+  // Counts "good" coverage only: same quality filter as getRankings (no thin
+  // policies, no fetch-issue summaries, no self-domain). Keeps the public
+  // total honest about what visitors can actually look up.
+  const { rows } = await pool.query<{
+    sites_covered: string;
+    shared_families: string;
+    last_analyzed_at: Date | null;
+  }>(
+    `WITH good_sources AS (
+       SELECT DISTINCT pa.policy_source_id
+       FROM policy_analyses pa
+       JOIN policies p ON p.id = pa.policy_id
+       WHERE pa.status = 'done'
+         AND pa.overall_score IS NOT NULL
+         AND p.char_count >= 2000
+         AND COALESCE(pa.summary, '') !~* $1
+     ),
+     covered_sites AS (
+       SELECT DISTINCT pss.site_id
+       FROM policy_source_sites pss
+       JOIN sites s ON s.id = pss.site_id
+       WHERE pss.policy_source_id IN (SELECT policy_source_id FROM good_sources)
+         AND s.domain <> 'terms-vzh0.onrender.com'
+     ),
+     family_sizes AS (
+       SELECT pss.policy_source_id, COUNT(*) AS site_count
+       FROM policy_source_sites pss
+       WHERE pss.policy_source_id IN (SELECT policy_source_id FROM good_sources)
+       GROUP BY pss.policy_source_id
+     )
+     SELECT
+       (SELECT COUNT(*) FROM covered_sites) AS sites_covered,
+       (SELECT COUNT(*) FROM family_sizes WHERE site_count >= 2) AS shared_families,
+       (SELECT MAX(pa.analyzed_at)
+          FROM policy_analyses pa
+          WHERE pa.status = 'done'
+            AND pa.policy_source_id IN (SELECT policy_source_id FROM good_sources)
+       ) AS last_analyzed_at`,
+    [FETCH_ISSUE_REGEX]
+  );
+  const row = rows[0]!;
+  return {
+    sites_covered: Number(row.sites_covered),
+    shared_families: Number(row.shared_families),
+    last_analyzed_at: row.last_analyzed_at,
+  };
+}
+
 export async function insertFailedAnalysis(
   policyId: string,
   siteId: string,
