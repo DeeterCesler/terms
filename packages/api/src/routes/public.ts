@@ -5,7 +5,7 @@ import { getLatestAnalysis, getAnalysisHistory, getRankings } from '../db/querie
 import { getSitesForSource } from '../db/queries/policy_sources.js';
 import { addCandidate, getCandidateByDomain } from '../db/queries/candidates.js';
 import { normalizeDomain } from '../utils/domain.js';
-import { adminAuth } from '../middleware/adminAuth.js';
+import { requestRateLimiter } from '../middleware/rateLimiter.js';
 import type { CheckResult, HistoryEntry, PolicyAnalysisRow, RankingsResponse } from '@term-checker/shared';
 
 export const publicRouter = Router();
@@ -158,7 +158,7 @@ const RequestBody = z.object({
   url: z.string().url().optional(),
 });
 
-publicRouter.post('/request/:domain', adminAuth, async (req, res, next) => {
+publicRouter.post('/request/:domain', requestRateLimiter, async (req, res, next) => {
   try {
     const domain = normalizeDomain(req.params.domain ?? '');
     if (!domain) {
@@ -174,7 +174,7 @@ publicRouter.post('/request/:domain', adminAuth, async (req, res, next) => {
 
     const candidate = await addCandidate(domain, 'privacy_policy', {
       url: parsed.data.url ?? null,
-      notes: 'requested via admin',
+      notes: 'requested via extension',
     });
 
     checkCache.delete(domain);
