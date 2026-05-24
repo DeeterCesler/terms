@@ -58,13 +58,13 @@ function formatRelativeUpdate(d: Date | null): string {
   return `Updated ${d.toISOString().slice(0, 10)}`;
 }
 
-function renderStatsStrip(stats: { sites_covered: number; shared_families: number; last_analyzed_at: Date | null }): string {
+function renderStatsStrip(stats: { sites_covered: number; sites_queued: number; last_analyzed_at: Date | null }): string {
   const sites = stats.sites_covered.toLocaleString();
-  const families = stats.shared_families.toLocaleString();
+  const queued = stats.sites_queued.toLocaleString();
   const updated = escapeHtml(formatRelativeUpdate(stats.last_analyzed_at));
   return (
     `<div class="stat"><span class="stat-value">${sites}</span><span class="stat-label">Sites analyzed</span></div>` +
-    `<div class="stat"><span class="stat-value">${families}</span><span class="stat-label">Shared-policy families</span></div>` +
+    `<div class="stat"><span class="stat-value">${queued}</span><span class="stat-label">Sites queued</span></div>` +
     `<div class="stat"><span class="stat-value stat-text">${updated}</span><span class="stat-label">Most recent</span></div>`
   );
 }

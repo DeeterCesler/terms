@@ -153,7 +153,7 @@ export async function getRankings(limit: number): Promise<{
 
 export interface CoverageStats {
   sites_covered: number;
-  shared_families: number;
+  sites_queued: number;
   last_analyzed_at: Date | null;
 }
 
@@ -163,7 +163,7 @@ export async function getCoverageStats(): Promise<CoverageStats> {
   // total honest about what visitors can actually look up.
   const { rows } = await pool.query<{
     sites_covered: string;
-    shared_families: string;
+    sites_queued: string;
     last_analyzed_at: Date | null;
   }>(
     `WITH good_sources AS (
@@ -181,16 +181,22 @@ export async function getCoverageStats(): Promise<CoverageStats> {
        JOIN sites s ON s.id = pss.site_id
        WHERE pss.policy_source_id IN (SELECT policy_source_id FROM good_sources)
          AND s.domain <> 'terms-vzh0.onrender.com'
-     ),
-     family_sizes AS (
-       SELECT pss.policy_source_id, COUNT(*) AS site_count
-       FROM policy_source_sites pss
-       WHERE pss.policy_source_id IN (SELECT policy_source_id FROM good_sources)
-       GROUP BY pss.policy_source_id
      )
      SELECT
        (SELECT COUNT(*) FROM covered_sites) AS sites_covered,
-       (SELECT COUNT(*) FROM family_sizes WHERE site_count >= 2) AS shared_families,
+       (SELECT COUNT(*)
+          FROM policy_candidates c
+          WHERE NOT EXISTS (
+            SELECT 1
+            FROM policy_sources ps
+            JOIN sites s ON s.id = ps.site_id
+            JOIN policy_analyses pa ON pa.policy_source_id = ps.id AND pa.status = 'done'
+            WHERE s.domain = c.domain
+              AND ps.policy_type = c.policy_type
+              AND ps.product IS NOT DISTINCT FROM c.product
+              AND (c.url IS NULL OR ps.url = c.url)
+          )
+       ) AS sites_queued,
        (SELECT MAX(pa.analyzed_at)
           FROM policy_analyses pa
           WHERE pa.status = 'done'
@@ -201,7 +207,7 @@ export async function getCoverageStats(): Promise<CoverageStats> {
   const row = rows[0]!;
   return {
     sites_covered: Number(row.sites_covered),
-    shared_families: Number(row.shared_families),
+    sites_queued: Number(row.sites_queued),
     last_analyzed_at: row.last_analyzed_at,
   };
 }
