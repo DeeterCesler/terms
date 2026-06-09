@@ -25,6 +25,27 @@ export type Finding = z.infer<typeof FindingSchema>;
 export type Highlight = z.infer<typeof HighlightSchema>;
 export type AnalysisResult = z.infer<typeof AnalysisResultSchema>;
 
+// License agreements / EULAs (policy_type = 'license') are analyzed through a
+// different lens than privacy policies. The structured result is stored in
+// policy_analyses.raw_response; the privacy columns stay NULL. overall_score,
+// summary, and highlights are shared with the privacy schema for reuse.
+export const LicenseAnalysisResultSchema = z.object({
+  reverse_engineering_restricted: FindingSchema,
+  redistribution_restricted: FindingSchema,
+  commercial_use_restricted: FindingSchema,
+  warranty_disclaimed: FindingSchema,
+  liability_limited: FindingSchema,
+  telemetry_data_collection: FindingSchema,
+  ip_ownership: z.string().nullable(),
+  termination_terms: z.string().nullable(),
+  license_scope: z.string().nullable(),
+  overall_score: z.number().int().min(1).max(10),
+  summary: z.string(),
+  highlights: z.array(HighlightSchema).optional(),
+});
+
+export type LicenseAnalysisResult = z.infer<typeof LicenseAnalysisResultSchema>;
+
 export const SCORE_TIERS = {
   GOOD: { min: 8, max: 10, label: 'Good', color: '#22c55e' },
   FAIR: { min: 5, max: 7, label: 'Fair', color: '#f59e0b' },
@@ -38,3 +59,4 @@ export function getScoreTier(score: number) {
 }
 
 export const PROMPT_VERSION = '1.0.0';
+export const LICENSE_PROMPT_VERSION = '1.0.0';

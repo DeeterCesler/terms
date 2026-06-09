@@ -4,6 +4,7 @@ export type PolicyType =
   | 'cookie_policy'
   | 'data_processing_agreement'
   | 'acceptable_use_policy'
+  | 'license'
   | 'other';
 
 export interface SiteRow {

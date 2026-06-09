@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeDomain, extractDomainFromUrl } from './domain.js';
+import { normalizeDomain, extractDomainFromUrl, domainLookupCandidates } from './domain.js';
 
 describe('normalizeDomain', () => {
   it('returns the hostname for a bare domain', () => {
@@ -46,5 +46,37 @@ describe('extractDomainFromUrl', () => {
 
   it('lowercases the result', () => {
     expect(extractDomainFromUrl('https://EXAMPLE.COM/page')).toBe('example.com');
+  });
+});
+
+describe('domainLookupCandidates', () => {
+  it('returns the bare domain unchanged', () => {
+    expect(domainLookupCandidates('example.com')).toEqual(['example.com']);
+  });
+
+  it('folds a subdomain down to the registrable domain', () => {
+    expect(domainLookupCandidates('open.spotify.com')).toEqual([
+      'open.spotify.com',
+      'spotify.com',
+    ]);
+  });
+
+  it('walks every level of a deep subdomain', () => {
+    expect(domainLookupCandidates('a.b.example.com')).toEqual([
+      'a.b.example.com',
+      'b.example.com',
+      'example.com',
+    ]);
+  });
+
+  it('stops at eTLD+1 for a known two-label suffix', () => {
+    expect(domainLookupCandidates('foo.bar.co.uk')).toEqual([
+      'foo.bar.co.uk',
+      'bar.co.uk',
+    ]);
+  });
+
+  it('does not collapse a registrable two-label-suffix domain', () => {
+    expect(domainLookupCandidates('bar.co.uk')).toEqual(['bar.co.uk']);
   });
 });

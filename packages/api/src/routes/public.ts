@@ -4,7 +4,7 @@ import { getSiteByDomain } from '../db/queries/sites.js';
 import { getLatestAnalysis, getAnalysisHistory, getRankings } from '../db/queries/analyses.js';
 import { getSitesForSource } from '../db/queries/policy_sources.js';
 import { addCandidate, getCandidateByDomain } from '../db/queries/candidates.js';
-import { normalizeDomain } from '../utils/domain.js';
+import { normalizeDomain, domainLookupCandidates } from '../utils/domain.js';
 import { requestRateLimiter } from '../middleware/rateLimiter.js';
 import type { CheckResult, HistoryEntry, PolicyAnalysisRow, RankingsResponse } from '@term-checker/shared';
 
@@ -83,18 +83,18 @@ publicRouter.get('/check/:domain', async (req, res, next) => {
       return;
     }
 
-    const site = await getSiteByDomain(domain);
-    if (!site) {
-      const candidate = await getCandidateByDomain(domain);
-      const result: CheckResult = candidate
-        ? { found: false, domain, requested: { at: candidate.added_at.toISOString() } }
-        : { found: false, domain };
-      setCachedCheck(domain, result);
-      res.json(result);
-      return;
+    // Resolve the hostname to an analyzed site, folding subdomains down to the
+    // registrable domain so e.g. open.spotify.com matches spotify.com's
+    // analysis. Server-side so already-shipped extension builds benefit.
+    let analysis: Awaited<ReturnType<typeof getLatestAnalysis>> = null;
+    let matchedDomain = domain;
+    for (const candidate of domainLookupCandidates(domain)) {
+      const site = await getSiteByDomain(candidate);
+      if (!site) continue;
+      const found = await getLatestAnalysis(site.id);
+      if (found) { analysis = found; matchedDomain = candidate; break; }
     }
 
-    const analysis = await getLatestAnalysis(site.id);
     if (!analysis) {
       const candidate = await getCandidateByDomain(domain);
       const result: CheckResult = candidate
@@ -108,7 +108,7 @@ publicRouter.get('/check/:domain', async (req, res, next) => {
     const sharedSites = await getSitesForSource(analysis.policy_source_id);
     const sharedDomains = sharedSites
       .map(s => s.domain)
-      .filter(d => d !== domain);
+      .filter(d => d !== domain && d !== matchedDomain);
 
     const result: CheckResult = {
       found: true,
