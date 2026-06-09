@@ -111,7 +111,7 @@ export function extractPolicyText(
 export async function crawlPolicyUrl(url: string): Promise<CrawlResult> {
   const response = await fetch(url, {
     headers: {
-      'User-Agent': 'TermChecker/1.0 (privacy policy analyzer; contact me@deetercesler.com)',
+      'User-Agent': 'PolicyChecker/1.0 (privacy policy analyzer; contact me@deetercesler.com)',
       'Accept': 'text/html,application/xhtml+xml',
       'Accept-Language': 'en-US,en;q=0.9',
     },

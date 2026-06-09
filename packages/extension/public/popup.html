@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Term Checker</title>
+  <title>Policy Checker</title>
   <link rel="stylesheet" href="popup.css" />
 </head>
 <body>
   <div id="app">
     <header>
       <img class="logo-img" src="icons/icon128.png" alt="" />
-      <span class="logo">Term Checker</span>
+      <span class="logo">Policy Checker</span>
     </header>
     <main id="content">
       <div id="state-loading" class="state hidden">
@@ -26,6 +26,11 @@
       </div>
       <div id="state-error" class="state hidden">
         <p class="error-msg">Could not reach the checker service.</p>
+      </div>
+      <div id="state-local" class="state hidden">
+        <p class="local-emoji" aria-hidden="true">🏠</p>
+        <p class="not-found-msg">You're on local.</p>
+        <p class="local-sub">The only data being shared is with yourself (and any other Chrome extensions you have enabled and allowed to read your site data).</p>
       </div>
       <div id="state-found" class="state hidden">
         <div class="domain-row">
@@ -44,26 +49,51 @@
             <span class="finding-label">Sells your data</span>
             <span class="finding-value" id="f-sells"></span>
           </div>
-          <div class="finding-row">
+          <div class="finding-row hidden" id="anon-row">
             <span class="finding-label">Data anonymized</span>
             <span class="finding-value" id="f-anon"></span>
           </div>
-          <div class="highlights-section hidden" id="highlights-section">
-            <span class="summary-label">Highlights</span>
-            <ul id="highlights-list" class="highlights-list"></ul>
-          </div>
-          <div class="finding-row retention-row">
-            <span class="finding-label">Data retention</span>
-            <div class="finding-value retention" id="f-retention"></div>
-          </div>
-          <div class="finding-row rights-row" id="rights-row">
-            <span class="finding-label">Your rights</span>
-            <div class="finding-value rights" id="f-rights"></div>
-          </div>
         </div>
-        <div class="summary-section">
-          <span class="summary-label">Summary</span>
-          <div id="summary-text"></div>
+        <div class="accordions">
+          <details class="acc hidden" id="highlights-section">
+            <summary>
+              <span class="acc-head">
+                <span class="acc-title">Highlights</span>
+                <span class="acc-chevron" aria-hidden="true"></span>
+              </span>
+              <ul id="highlights-preview" class="highlights-list"></ul>
+              <span class="acc-more more-collapsed" id="highlights-more"></span>
+              <span class="acc-more more-expanded">Show less</span>
+            </summary>
+            <ul id="highlights-rest" class="highlights-list acc-body"></ul>
+          </details>
+          <details class="acc acc--retention">
+            <summary>
+              <span class="acc-head">
+                <span class="acc-title">Data retention</span>
+                <span class="acc-chevron" aria-hidden="true"></span>
+              </span>
+            </summary>
+            <div class="acc-body finding-value retention" id="f-retention"></div>
+          </details>
+          <details class="acc acc--rights">
+            <summary>
+              <span class="acc-head">
+                <span class="acc-title">Your rights</span>
+                <span class="acc-chevron" aria-hidden="true"></span>
+              </span>
+            </summary>
+            <div class="acc-body finding-value rights" id="f-rights"></div>
+          </details>
+          <details class="acc acc--summary">
+            <summary>
+              <span class="acc-head">
+                <span class="acc-title">Summary</span>
+                <span class="acc-chevron" aria-hidden="true"></span>
+              </span>
+            </summary>
+            <div class="acc-body summary-body" id="summary-text"></div>
+          </details>
         </div>
         <div class="footer">
           <span class="last-analyzed">Last analyzed: <span id="last-analyzed"></span></span>

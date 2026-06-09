@@ -1,4 +1,4 @@
-# Term Checker
+# Policy Checker
 
 A privacy policy analyzer: privacy policies are fetched, analyzed by Claude (locally), and inserted directly into a Postgres database. A Chrome extension popup surfaces the stored analysis. The deployed API is read-only — there is no server-side LLM call.
 

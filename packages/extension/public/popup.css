@@ -51,6 +51,10 @@ main { padding: 12px 14px; }
 /* Error */
 .error-msg { color: #ef4444; text-align: center; margin-top: 12px; }
 
+/* Local (easter egg) */
+.local-emoji { font-size: 32px; text-align: center; margin-top: 12px; margin-bottom: 0; }
+.local-sub { color: #9ca3af; font-size: 12px; text-align: center; line-height: 1.5; padding: 0 8px; }
+
 /* Found */
 .domain-row {
   margin-bottom: 10px;
@@ -126,39 +130,81 @@ main { padding: 12px 14px; }
 .finding-value.rights ul li { line-height: 1.4; margin-bottom: 2px; }
 .finding-value.rights { font-weight: normal; color: #374151; font-size: 12px; text-align: left; }
 
-.rights-row, .retention-row { flex-direction: column; align-items: stretch; gap: 4px; }
-.rights-row .finding-label, .retention-row .finding-label { margin-bottom: 2px; }
-
-/* Summary */
-.summary-section {
-  position: relative;
-  background: #f5f7fb;
-  border-left: 3px solid #4f46e5;
-  border-radius: 4px;
-  padding: 10px 12px 10px 14px;
-  font-size: 12.5px;
-  color: #1f2937;
-  line-height: 1.55;
+/* Accordions (expandable sections) */
+.accordions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   margin-bottom: 10px;
 }
-.summary-label {
-  display: block;
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: #4f46e5;
-  margin-bottom: 6px;
+.acc {
+  border: 1px solid #eceef1;
+  border-radius: 6px;
+  background: #fff;
 }
-.summary-section p { margin: 0 0 8px 0; }
-.summary-section p:last-child { margin-bottom: 0; }
+/* Subtle per-section tints so the dropdowns don't read as plain white boxes. */
+.acc--retention { background: #f5f9fc; border-color: #e5eef6; }
+.acc--rights { background: #f4faf6; border-color: #e2efe8; }
+.acc--summary { background: #f6f6fc; border-color: #e8e8f6; }
+.acc > summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 8px 10px;
+  display: block;
+}
+.acc > summary::-webkit-details-marker { display: none; }
+.acc-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.acc-title { font-weight: 600; color: #374151; font-size: 13px; }
+.acc-chevron {
+  display: inline-block;
+  transition: transform 0.15s ease;
+  color: #9ca3af;
+  font-size: 11px;
+  line-height: 1;
+}
+.acc-chevron::before { content: '\25B8'; }
+.acc[open] .acc-chevron { transform: rotate(90deg); }
+.acc-body { padding: 0 10px 10px; }
+
+/* "Show N more" / "Show less" affordance under the highlights preview, so the
+   visible preview doesn't read as an already-expanded section. */
+.acc-more {
+  display: block;
+  margin-top: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #4f46e5;
+}
+.more-collapsed::after { content: ' \25BE'; }
+.more-expanded::after { content: ' \25B4'; }
+.more-expanded { display: none; }
+.acc[open] .more-collapsed { display: none; }
+.acc[open] .more-expanded { display: block; }
+
+/* Highlights moves its disclosure arrow down next to "Show N more", so hide the
+   header chevron for that section only. */
+#highlights-section .acc-chevron { display: none; }
+
+/* Highlights section with no expandable extras: no toggle affordance */
+.acc.no-toggle > summary { cursor: default; }
+.acc.no-toggle .acc-chevron,
+.acc.no-toggle .acc-more { display: none; }
+
+/* Summary body inside its accordion */
+.summary-body { font-size: 12.5px; color: #1f2937; line-height: 1.55; }
+.summary-body p { margin: 0 0 8px 0; }
+.summary-body p:last-child { margin-bottom: 0; }
 
 /* Highlights */
-.highlights-section {
-  /* sits inside .findings between Data anonymized and Data retention,
-     so spacing comes from the flex `gap` instead of a fixed margin */
-  margin: 4px 0;
-}
+#highlights-preview { margin: 0; padding: 0; }
+#highlights-preview:not(:empty) { margin-top: 8px; }
+#highlights-rest { margin: 0; padding: 6px 10px 10px; }
+#highlights-rest:empty { display: none; }
 .highlights-list {
   list-style: none;
   padding: 0;

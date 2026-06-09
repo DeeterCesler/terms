@@ -5,7 +5,7 @@ import { listCommand } from './commands/list.js';
 
 const program = new Command()
   .name('term-checker-admin')
-  .description('Admin CLI for Term Checker — privacy policy analyzer (read-only; analysis happens locally via scripts/insert-direct.ts)')
+  .description('Admin CLI for Policy Checker — privacy policy analyzer (read-only; analysis happens locally via scripts/insert-direct.ts)')
   .version('1.0.0');
 
 program

@@ -1,12 +1,12 @@
 {
   "manifest_version": 3,
-  "name": "Term Checker",
+  "name": "Policy Checker",
   "version": "1.0.0",
   "description": "Instantly see how a website handles your data — privacy score, key findings, and plain-English summary.",
   "permissions": ["activeTab", "storage"],
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Term Checker",
+    "default_title": "Policy Checker",
     "default_icon": {
       "16": "icons/icon16.png",
       "48": "icons/icon48.png",
