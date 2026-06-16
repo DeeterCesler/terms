@@ -6,12 +6,15 @@ export async function getLatestAnalysis(
 ): Promise<(PolicyAnalysisRow & { policy_url: string }) | null> {
   // Join through policy_source_sites so shared corporate policies (e.g. Disney
   // covering espn.com, disneyplus.com, etc.) surface for every brand site.
+  // License analyses are store-only (privacy columns are NULL), so they must
+  // never win here or they shadow the real privacy notice in the popup.
   const { rows } = await pool.query<PolicyAnalysisRow & { policy_url: string }>(
     `SELECT pa.*, ps.url AS policy_url
      FROM policy_analyses pa
      JOIN policy_sources ps ON ps.id = pa.policy_source_id
      JOIN policy_source_sites pss ON pss.policy_source_id = pa.policy_source_id
      WHERE pss.site_id = $1 AND pa.status = 'done'
+       AND ps.policy_type <> 'license'
      ORDER BY pa.analyzed_at DESC
      LIMIT 1`,
     [siteId]
@@ -23,8 +26,10 @@ export async function getAnalysisHistory(siteId: string): Promise<PolicyAnalysis
   const { rows } = await pool.query<PolicyAnalysisRow>(
     `SELECT DISTINCT pa.*
      FROM policy_analyses pa
+     JOIN policy_sources ps ON ps.id = pa.policy_source_id
      JOIN policy_source_sites pss ON pss.policy_source_id = pa.policy_source_id
      WHERE pss.site_id = $1 AND pa.status = 'done'
+       AND ps.policy_type <> 'license'
      ORDER BY pa.analyzed_at DESC`,
     [siteId]
   );
@@ -131,9 +136,11 @@ export async function getRankings(limit: number): Promise<{
     FROM policy_analyses pa
     JOIN latest ON latest.policy_source_id = pa.policy_source_id AND latest.latest_at = pa.analyzed_at
     JOIN policies p ON p.id = pa.policy_id
+    JOIN policy_sources src ON src.id = pa.policy_source_id
     JOIN primary_site ps_site ON ps_site.policy_source_id = pa.policy_source_id
     JOIN shared ON shared.policy_source_id = pa.policy_source_id
     WHERE pa.status = 'done'
+      AND src.policy_type <> 'license'
       AND ps_site.domain <> 'terms-vzh0.onrender.com'
       AND p.char_count >= 2000
       AND COALESCE(pa.summary, '') !~* $2
@@ -170,8 +177,10 @@ export async function getCoverageStats(): Promise<CoverageStats> {
        SELECT DISTINCT pa.policy_source_id
        FROM policy_analyses pa
        JOIN policies p ON p.id = pa.policy_id
+       JOIN policy_sources ps ON ps.id = pa.policy_source_id
        WHERE pa.status = 'done'
          AND pa.overall_score IS NOT NULL
+         AND ps.policy_type <> 'license'
          AND p.char_count >= 2000
          AND COALESCE(pa.summary, '') !~* $1
      ),
