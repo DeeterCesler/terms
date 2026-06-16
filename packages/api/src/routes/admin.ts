@@ -1,9 +1,10 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { getSiteByDomain, countSites, deleteSite } from '../db/queries/sites.js';
+import { getSiteByDomain, countSites, deleteSite, getSiblingDomains } from '../db/queries/sites.js';
 import { listPolicySourcesBySite } from '../db/queries/policy_sources.js';
 import { listCandidates, listPendingCandidates, addCandidate, removeCandidate } from '../db/queries/candidates.js';
 import { normalizeDomain } from '../utils/domain.js';
+import { bustCachedCheck } from '../cache/checkCache.js';
 import { pool } from '../db/client.js';
 import type { PolicyType } from '@term-checker/shared';
 
@@ -98,6 +99,35 @@ adminRouter.delete('/sites/:domain', async (req, res, next) => {
       return;
     }
     res.json({ deleted: true, domain });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Invalidate the in-memory /check cache after an out-of-process re-analysis
+// (ingest scripts write straight to Postgres, so they can't clear the running
+// API's cache themselves). Expands the given domain to every sibling sharing its
+// policy source, so re-analyzing anthropic.com also refreshes claude.ai.
+const CacheBustBody = z.object({
+  domain: z.string().min(1),
+});
+
+adminRouter.post('/cache/bust', async (req, res, next) => {
+  try {
+    const parsed = CacheBustBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.flatten() });
+      return;
+    }
+
+    const domain = normalizeDomain(parsed.data.domain) || parsed.data.domain.toLowerCase();
+    const siblings = await getSiblingDomains(domain);
+    // Always include the requested domain even if it isn't a known site yet, so
+    // a stale cached "not found"/older entry still gets dropped.
+    const domains = [...new Set([domain, ...siblings])];
+    const removed = bustCachedCheck(domains);
+
+    res.json({ domain, domains, removed });
   } catch (err) {
     next(err);
   }

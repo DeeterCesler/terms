@@ -6,35 +6,10 @@ import { getSitesForSource } from '../db/queries/policy_sources.js';
 import { addCandidate, getCandidateByDomain } from '../db/queries/candidates.js';
 import { normalizeDomain, domainLookupCandidates } from '../utils/domain.js';
 import { requestRateLimiter } from '../middleware/rateLimiter.js';
+import { getCachedCheck, setCachedCheck, bustCachedCheck } from '../cache/checkCache.js';
 import type { CheckResult, HistoryEntry, PolicyAnalysisRow, RankingsResponse } from '@term-checker/shared';
 
 export const publicRouter = Router();
-
-const CHECK_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-const CHECK_CACHE_MAX = 100;
-const checkCache = new Map<string, { value: CheckResult; expiresAt: number }>();
-
-function getCachedCheck(domain: string): CheckResult | undefined {
-  const entry = checkCache.get(domain);
-  if (!entry) return undefined;
-  if (entry.expiresAt < Date.now()) {
-    checkCache.delete(domain);
-    return undefined;
-  }
-  checkCache.delete(domain);
-  checkCache.set(domain, entry);
-  return entry.value;
-}
-
-function setCachedCheck(domain: string, value: CheckResult): void {
-  if (!value.found) return;
-  if (checkCache.has(domain)) checkCache.delete(domain);
-  else if (checkCache.size >= CHECK_CACHE_MAX) {
-    const oldest = checkCache.keys().next().value;
-    if (oldest !== undefined) checkCache.delete(oldest);
-  }
-  checkCache.set(domain, { value, expiresAt: Date.now() + CHECK_CACHE_TTL_MS });
-}
 
 function rowToAnalysis(row: PolicyAnalysisRow | null) {
   if (!row) return null;
@@ -177,7 +152,7 @@ publicRouter.post('/request/:domain', requestRateLimiter, async (req, res, next)
       notes: 'requested via extension',
     });
 
-    checkCache.delete(domain);
+    bustCachedCheck([domain]);
 
     res.status(202).json({ domain, candidateId: candidate.id, status: 'requested' });
   } catch (err) {
