@@ -48,24 +48,22 @@ function renderRankingRows(list: Array<{ domain: string; overall_score: number; 
   }).join('');
 }
 
-function formatRelativeUpdate(d: Date | null): string {
-  if (!d) return 'No analyses yet';
-  const diffMs = Date.now() - d.getTime();
-  const day = 86400_000;
-  if (diffMs < day) return 'Updated today';
-  if (diffMs < 2 * day) return 'Updated yesterday';
-  if (diffMs < 30 * day) return `Updated ${Math.floor(diffMs / day)} days ago`;
-  return `Updated ${d.toISOString().slice(0, 10)}`;
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+function formatDate(d: Date | null): string {
+  if (!d) return 'never';
+  return `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}, ${d.getUTCFullYear()}`;
 }
 
-function renderStatsStrip(stats: { sites_covered: number; sites_queued: number; last_analyzed_at: Date | null }): string {
+function renderStatsStrip(stats: { sites_covered: number; sites_queued: number; last_analyzed_at: Date | null; last_added_domain: string | null }): string {
   const sites = stats.sites_covered.toLocaleString();
   const queued = stats.sites_queued.toLocaleString();
-  const updated = escapeHtml(formatRelativeUpdate(stats.last_analyzed_at));
+  const updated = escapeHtml(formatDate(stats.last_analyzed_at));
+  const lastAdded = escapeHtml(stats.last_added_domain ?? 'none yet');
   return (
     `<div class="stat"><span class="stat-value">${sites}</span><span class="stat-label">Sites analyzed</span></div>` +
     `<div class="stat"><span class="stat-value">${queued}</span><span class="stat-label">Sites queued</span></div>` +
-    `<div class="stat"><span class="stat-value stat-text">${updated}</span><span class="stat-label">Most recent</span></div>`
+    `<div class="stat"><span class="stat-value stat-text">Last Updated: ${updated}</span><span class="stat-label">Last Added: ${lastAdded}</span></div>`
   );
 }
 

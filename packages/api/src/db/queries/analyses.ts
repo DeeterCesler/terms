@@ -162,6 +162,7 @@ export interface CoverageStats {
   sites_covered: number;
   sites_queued: number;
   last_analyzed_at: Date | null;
+  last_added_domain: string | null;
 }
 
 export async function getCoverageStats(): Promise<CoverageStats> {
@@ -172,6 +173,7 @@ export async function getCoverageStats(): Promise<CoverageStats> {
     sites_covered: string;
     sites_queued: string;
     last_analyzed_at: Date | null;
+    last_added_domain: string | null;
   }>(
     `WITH good_sources AS (
        SELECT DISTINCT pa.policy_source_id
@@ -210,7 +212,16 @@ export async function getCoverageStats(): Promise<CoverageStats> {
           FROM policy_analyses pa
           WHERE pa.status = 'done'
             AND pa.policy_source_id IN (SELECT policy_source_id FROM good_sources)
-       ) AS last_analyzed_at`,
+       ) AS last_analyzed_at,
+       (SELECT s.domain
+          FROM policy_analyses pa
+          JOIN policy_sources ps ON ps.id = pa.policy_source_id
+          JOIN sites s ON s.id = ps.site_id
+          WHERE pa.status = 'done'
+            AND pa.policy_source_id IN (SELECT policy_source_id FROM good_sources)
+          ORDER BY pa.analyzed_at DESC
+          LIMIT 1
+       ) AS last_added_domain`,
     [FETCH_ISSUE_REGEX]
   );
   const row = rows[0]!;
@@ -218,6 +229,7 @@ export async function getCoverageStats(): Promise<CoverageStats> {
     sites_covered: Number(row.sites_covered),
     sites_queued: Number(row.sites_queued),
     last_analyzed_at: row.last_analyzed_at,
+    last_added_domain: row.last_added_domain,
   };
 }
 
