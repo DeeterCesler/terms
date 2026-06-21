@@ -63,7 +63,7 @@ function renderStatsStrip(stats: { sites_covered: number; sites_queued: number; 
   return (
     `<div class="stat"><span class="stat-value">${sites}</span><span class="stat-label">Sites analyzed</span></div>` +
     `<div class="stat"><span class="stat-value">${queued}</span><span class="stat-label">Sites queued</span></div>` +
-    `<div class="stat"><span class="stat-value stat-text">Last Updated: ${updated}</span><span class="stat-label">Last Added: ${lastAdded}</span></div>`
+    `<div class="stat"><span class="stat-value">Updated: ${updated}</span><span class="stat-label">Last Added: ${lastAdded}</span></div>`
   );
 }
 
