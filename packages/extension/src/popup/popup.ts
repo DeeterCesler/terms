@@ -1,4 +1,5 @@
 import { normalizeDomain } from '../utils/domain.js';
+import { recheckState, type RefreshInfo } from '../utils/recheck.js';
 
 const API_BASE = (import.meta.env.VITE_API_BASE as string | undefined) ?? 'https://terms-vzh0.onrender.com';
 
@@ -151,6 +152,12 @@ function renderFound(domain: string, result: any) {
 
   (document.getElementById('score-tier') as HTMLElement).textContent = scoreTierLabel(a.overallScore);
 
+  // Sites with no meaningful privacy policy get an explicit callout — a low
+  // score alone reads as "bad policy" rather than "no policy worth the name".
+  // The field is absent for every site that isn't flagged.
+  const noPolicyNote = document.getElementById('no-policy-note') as HTMLElement;
+  noPolicyNote.classList.toggle('hidden', a.noMeaningfulPolicy !== true);
+
   boolDisplay(a.sharesWithThirdParties.value, document.getElementById('f-shares') as HTMLElement);
   boolDisplay(a.sellsData.value, document.getElementById('f-sells') as HTMLElement);
 
@@ -223,7 +230,68 @@ function renderFound(domain: string, result: any) {
   (document.getElementById('last-analyzed') as HTMLElement).textContent =
     new Date(result.lastAnalyzed).toLocaleDateString();
 
+  renderRecheck(domain, result.refresh);
+
   show('state-found');
+}
+
+// The re-check affordance for a site we already cover. `refresh` is absent on
+// responses from an older server build, in which case we show nothing rather
+// than a button whose POST would be treated as a first-time request.
+function renderRecheck(domain: string, refresh: RefreshInfo | undefined) {
+  const btn = document.getElementById('recheck-btn') as HTMLButtonElement | null;
+  const status = document.getElementById('recheck-status') as HTMLElement | null;
+  if (!btn || !status) return;
+
+  btn.classList.add('hidden');
+  btn.disabled = false;
+  btn.textContent = 'Policy changed?';
+  status.classList.add('hidden');
+  status.classList.remove('error');
+  status.textContent = '';
+
+  const state = recheckState(refresh);
+  if (state.kind === 'hidden') return;
+
+  if (state.kind === 'queued') {
+    const when = state.requestedAt ? formatRequestedDate(state.requestedAt) : '';
+    status.textContent = when ? `Re-check queued ${when}` : 'Re-check queued';
+    status.classList.remove('hidden');
+    return;
+  }
+
+  btn.classList.remove('hidden');
+  btn.addEventListener('click', () => requestRecheck(domain), { once: true });
+}
+
+// Same public endpoint as a first-time request; the server recognizes an
+// already-covered domain and queues a refresh against it instead.
+async function requestRecheck(domain: string) {
+  const btn = document.getElementById('recheck-btn') as HTMLButtonElement | null;
+  const status = document.getElementById('recheck-status') as HTMLElement | null;
+  if (!btn || !status) return;
+
+  btn.disabled = true;
+  btn.textContent = 'Requesting…';
+
+  try {
+    const res = await fetch(`${API_BASE}/api/v1/request/${domain}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    btn.classList.add('hidden');
+    status.textContent = "Thanks — we'll re-check this policy soon.";
+    status.classList.remove('hidden');
+    // Drop the cached payload so the next open reflects the queued state.
+    await chrome.storage.session.remove(cacheKeyFor(domain));
+  } catch {
+    btn.classList.add('hidden');
+    status.textContent = 'Request failed. Try again later.';
+    status.classList.remove('hidden');
+    status.classList.add('error');
+  }
 }
 
 function formatRequestedDate(iso: string): string {

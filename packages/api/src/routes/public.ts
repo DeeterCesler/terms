@@ -7,6 +7,7 @@ import { addCandidate, getCandidateByDomain } from '../db/queries/candidates.js'
 import { normalizeDomain, domainLookupCandidates } from '../utils/domain.js';
 import { requestRateLimiter } from '../middleware/rateLimiter.js';
 import { getCachedCheck, setCachedCheck, bustCachedCheck } from '../cache/checkCache.js';
+import { computeRefreshState, REFRESH_MIN_AGE_MS } from '../services/refresh.js';
 import type { CheckResult, HistoryEntry, PolicyAnalysisRow, RankingsResponse } from '@term-checker/shared';
 
 export const publicRouter = Router();
@@ -22,7 +23,26 @@ function rowToAnalysis(row: PolicyAnalysisRow | null) {
     overallScore: row.overall_score!,
     summary: row.summary ?? '',
     highlights: (row.highlights as Array<{ kind: 'good' | 'bad'; text: string }>) ?? [],
+    // Only sent when true. Older extension builds ignore unknown fields, and
+    // omitting it entirely keeps the payload identical for the ~1,600 analyses
+    // that predate the flag.
+    ...(row.no_meaningful_policy === true ? { noMeaningfulPolicy: true } : {}),
   };
+}
+
+// Resolve a hostname to the domain we actually hold an analysis for, folding
+// subdomains down to the registrable domain (open.spotify.com -> spotify.com).
+// Returns null when we have nothing for any candidate.
+async function resolveAnalyzedDomain(domain: string): Promise<
+  { domain: string; analysis: NonNullable<Awaited<ReturnType<typeof getLatestAnalysis>>> } | null
+> {
+  for (const candidate of domainLookupCandidates(domain)) {
+    const site = await getSiteByDomain(candidate);
+    if (!site) continue;
+    const found = await getLatestAnalysis(site.id);
+    if (found) return { domain: candidate, analysis: found };
+  }
+  return null;
 }
 
 publicRouter.get('/rankings', async (_req, res, next) => {
@@ -61,14 +81,9 @@ publicRouter.get('/check/:domain', async (req, res, next) => {
     // Resolve the hostname to an analyzed site, folding subdomains down to the
     // registrable domain so e.g. open.spotify.com matches spotify.com's
     // analysis. Server-side so already-shipped extension builds benefit.
-    let analysis: Awaited<ReturnType<typeof getLatestAnalysis>> = null;
-    let matchedDomain = domain;
-    for (const candidate of domainLookupCandidates(domain)) {
-      const site = await getSiteByDomain(candidate);
-      if (!site) continue;
-      const found = await getLatestAnalysis(site.id);
-      if (found) { analysis = found; matchedDomain = candidate; break; }
-    }
+    const resolved = await resolveAnalyzedDomain(domain);
+    const analysis = resolved?.analysis ?? null;
+    const matchedDomain = resolved?.domain ?? domain;
 
     if (!analysis) {
       const candidate = await getCandidateByDomain(domain);
@@ -85,12 +100,22 @@ publicRouter.get('/check/:domain', async (req, res, next) => {
       .map(s => s.domain)
       .filter(d => d !== domain && d !== matchedDomain);
 
+    // Refresh state is keyed on the domain the analysis actually lives on, so a
+    // request from open.spotify.com reports (and later queues) against
+    // spotify.com rather than opening a second, never-serviced candidate row.
+    const refreshCandidate = await getCandidateByDomain(matchedDomain);
+    const refresh = computeRefreshState({
+      analyzedAt: analysis.analyzed_at,
+      refreshRequestedAt: refreshCandidate?.refresh_requested_at,
+    });
+
     const result: CheckResult = {
       found: true,
       domain,
       policyUrl: analysis.policy_url,
       lastAnalyzed: analysis.analyzed_at.toISOString(),
       ...(sharedDomains.length > 0 ? { sharedDomains } : {}),
+      refresh,
       analysis: rowToAnalysis(analysis)!,
     };
     setCachedCheck(domain, result);
@@ -144,6 +169,39 @@ publicRouter.post('/request/:domain', requestRateLimiter, async (req, res, next)
     const parsed = RequestBody.safeParse(req.body ?? {});
     if (!parsed.success) {
       res.status(400).json({ error: parsed.error.flatten() });
+      return;
+    }
+
+    // A domain we already cover is a re-check request, not a first analysis:
+    // queue it against the domain the analysis lives on, and only once the
+    // stored copy is old enough to plausibly have changed.
+    const resolved = await resolveAnalyzedDomain(domain);
+    if (resolved) {
+      const eligibleAt = new Date(resolved.analysis.analyzed_at.getTime() + REFRESH_MIN_AGE_MS);
+      if (eligibleAt.getTime() > Date.now()) {
+        res.status(429).json({
+          error: 'This policy was analyzed recently. Try again later.',
+          domain: resolved.domain,
+          eligibleAt: eligibleAt.toISOString(),
+        });
+        return;
+      }
+
+      const refreshed = await addCandidate(resolved.domain, 'privacy_policy', {
+        // Deliberately not passing the browsed URL here: on an already-covered
+        // domain it is whatever page the user happened to be on, and the
+        // refresh runner re-fetches the stored policy_sources.url instead.
+        notes: 'refresh requested via extension',
+        refreshRequested: true,
+      });
+
+      bustCachedCheck([domain, resolved.domain]);
+
+      res.status(202).json({
+        domain: resolved.domain,
+        candidateId: refreshed.id,
+        status: 'refresh_requested',
+      });
       return;
     }
 

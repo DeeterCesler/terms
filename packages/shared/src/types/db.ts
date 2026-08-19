@@ -5,6 +5,7 @@ export type PolicyType =
   | 'data_processing_agreement'
   | 'acceptable_use_policy'
   | 'license'
+  | 'recruitment_notice'
   | 'other';
 
 export interface SiteRow {
@@ -56,6 +57,8 @@ export interface PolicyAnalysisRow {
   overall_score: number | null;
   summary: string | null;
   highlights: Array<{ kind: 'good' | 'bad'; text: string }> | null;
+  // NULL = not assessed (every analysis predating migration 008).
+  no_meaningful_policy: boolean | null;
   raw_response: unknown;
   status: 'pending' | 'processing' | 'done' | 'failed';
   error_message: string | null;
@@ -72,6 +75,9 @@ export interface PolicyCandidateRow {
   priority: number;
   notes: string | null;
   added_at: Date;
+  // Non-NULL when a user asked us to re-check a site we already analyzed.
+  // Cleared once the refresh runner re-fetches the source.
+  refresh_requested_at: Date | null;
 }
 
 export interface ProcessingQueueRow {

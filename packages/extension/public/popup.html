@@ -40,6 +40,10 @@
           <div class="score-badge" id="score-badge">–</div>
           <div class="score-label">Privacy Score<br/><span id="score-tier"></span></div>
         </div>
+        <p class="no-policy-note hidden" id="no-policy-note">
+          This site doesn’t publish a real privacy policy — what’s there is
+          boilerplate with no rights, retention limits, or way to delete your data.
+        </p>
         <div class="findings">
           <div class="finding-row">
             <span class="finding-label">Shares with 3rd parties</span>
@@ -96,6 +100,9 @@
           </details>
         </div>
         <div class="footer">
+          <button id="recheck-btn" class="recheck-btn hidden" type="button"
+                  aria-label="Request a fresh analysis of this site's privacy policy">Policy changed?</button>
+          <span class="recheck-status hidden" id="recheck-status" role="status"></span>
           <span class="last-analyzed">Last analyzed: <span id="last-analyzed"></span></span>
         </div>
       </div>

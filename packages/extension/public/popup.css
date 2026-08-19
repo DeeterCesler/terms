@@ -100,6 +100,18 @@ main { padding: 12px 14px; }
 }
 #score-tier { font-weight: 600; font-size: 13px; color: #111; }
 
+/* Shown only for sites flagged as publishing no meaningful privacy policy. */
+.no-policy-note {
+  margin: -4px 0 10px;
+  padding: 8px 10px;
+  border-left: 3px solid #ef4444;
+  background: #fef2f2;
+  border-radius: 0 6px 6px 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #991b1b;
+}
+
 /* Findings */
 .findings {
   display: flex;
@@ -237,10 +249,37 @@ main { padding: 12px 14px; }
 .highlights-list li.bad .hl-kind { color: #b91c1c; }
 
 .footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
   font-size: 11px;
   color: #9ca3af;
   text-align: right;
 }
+
+/* Re-check affordance: only shown when the stored analysis is old enough to be
+   worth re-fetching, so it stays out of the way on freshly-analyzed sites. */
+.recheck-btn {
+  padding: 0;
+  background: none;
+  border: none;
+  font: inherit;
+  color: #4f46e5;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.recheck-btn:hover { color: #3730a3; }
+.recheck-btn:disabled { color: #9ca3af; text-decoration: none; cursor: default; }
+
+.recheck-status {
+  flex: 1;
+  text-align: left;
+  color: #6b7280;
+}
+.recheck-status.error { color: #b91c1c; }
+
+.last-analyzed { white-space: nowrap; }
 
 .request-btn {
   margin-top: 12px;
