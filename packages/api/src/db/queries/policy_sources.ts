@@ -1,8 +1,11 @@
-import { pool } from '../client.js';
+import { pool, type Queryable } from '../client.js';
 import type { PolicySourceRow, PolicyType } from '@term-checker/shared';
 
-export async function getPolicySourceByUrl(url: string): Promise<PolicySourceRow | null> {
-  const { rows } = await pool.query<PolicySourceRow>(
+export async function getPolicySourceByUrl(
+  url: string,
+  db: Queryable = pool,
+): Promise<PolicySourceRow | null> {
+  const { rows } = await db.query<PolicySourceRow>(
     'SELECT * FROM policy_sources WHERE url = $1',
     [url]
   );
@@ -22,8 +25,9 @@ export async function upsertPolicySource(
   url: string,
   policyType: PolicyType,
   product?: string | null,
+  db: Queryable = pool,
 ): Promise<PolicySourceRow> {
-  const { rows } = await pool.query<PolicySourceRow>(
+  const { rows } = await db.query<PolicySourceRow>(
     `INSERT INTO policy_sources (site_id, url, policy_type, product)
      VALUES ($1, $2, $3, $4)
      ON CONFLICT (url) DO UPDATE SET
@@ -37,7 +41,7 @@ export async function upsertPolicySource(
   // Always mirror into the junction so the M:N table is authoritative for
   // "which sites does this source apply to". is_primary=TRUE on the row whose
   // site_id matches the original upserting site.
-  await pool.query(
+  await db.query(
     `INSERT INTO policy_source_sites (policy_source_id, site_id, is_primary)
      VALUES ($1, $2, TRUE)
      ON CONFLICT (policy_source_id, site_id) DO NOTHING`,
@@ -46,8 +50,12 @@ export async function upsertPolicySource(
   return source;
 }
 
-export async function linkSiteToSource(sourceId: string, siteId: string): Promise<void> {
-  await pool.query(
+export async function linkSiteToSource(
+  sourceId: string,
+  siteId: string,
+  db: Queryable = pool,
+): Promise<void> {
+  await db.query(
     `INSERT INTO policy_source_sites (policy_source_id, site_id, is_primary)
      VALUES ($1, $2, FALSE)
      ON CONFLICT (policy_source_id, site_id) DO NOTHING`,

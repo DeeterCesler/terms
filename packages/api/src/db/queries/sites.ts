@@ -1,16 +1,23 @@
-import { pool } from '../client.js';
+import { pool, type Queryable } from '../client.js';
 import type { SiteRow } from '@term-checker/shared';
 
-export async function getSiteByDomain(domain: string): Promise<SiteRow | null> {
-  const { rows } = await pool.query<SiteRow>(
+export async function getSiteByDomain(
+  domain: string,
+  db: Queryable = pool,
+): Promise<SiteRow | null> {
+  const { rows } = await db.query<SiteRow>(
     'SELECT * FROM sites WHERE domain = $1',
     [domain]
   );
   return rows[0] ?? null;
 }
 
-export async function createSite(domain: string, name?: string | null): Promise<SiteRow> {
-  const { rows } = await pool.query<SiteRow>(
+export async function createSite(
+  domain: string,
+  name?: string | null,
+  db: Queryable = pool,
+): Promise<SiteRow> {
+  const { rows } = await db.query<SiteRow>(
     `INSERT INTO sites (domain, name) VALUES ($1, $2) RETURNING *`,
     [domain, name ?? null]
   );

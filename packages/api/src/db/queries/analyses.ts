@@ -1,20 +1,29 @@
-import { pool } from '../client.js';
+import { pool, type Queryable } from '../client.js';
 import type { PolicyAnalysisRow, AnalysisResult } from '@term-checker/shared';
+
+// Store-only policy types are analyzed through non-privacy lenses (license and
+// recruitment have their own schemas; 'other' is a generic catch-all for legal
+// docs like customer agreements) and stored with the privacy columns left NULL.
+// They live in the same tables but must never surface in any public read path,
+// or they shadow a site's real privacy notice in /check, the rankings, and
+// coverage stats. Keep every store-only filter below pointed at this one list.
+const STORE_ONLY_POLICY_TYPES = ['license', 'recruitment_notice', 'other'] as const;
+const STORE_ONLY_TYPE_LIST = STORE_ONLY_POLICY_TYPES.map((t) => `'${t}'`).join(', ');
 
 export async function getLatestAnalysis(
   siteId: string,
 ): Promise<(PolicyAnalysisRow & { policy_url: string }) | null> {
   // Join through policy_source_sites so shared corporate policies (e.g. Disney
   // covering espn.com, disneyplus.com, etc.) surface for every brand site.
-  // License analyses are store-only (privacy columns are NULL), so they must
-  // never win here or they shadow the real privacy notice in the popup.
+  // Store-only analyses (license, recruitment, generic 'other'; privacy columns
+  // are NULL) must never win here or they shadow the real privacy notice in the popup.
   const { rows } = await pool.query<PolicyAnalysisRow & { policy_url: string }>(
     `SELECT pa.*, ps.url AS policy_url
      FROM policy_analyses pa
      JOIN policy_sources ps ON ps.id = pa.policy_source_id
      JOIN policy_source_sites pss ON pss.policy_source_id = pa.policy_source_id
      WHERE pss.site_id = $1 AND pa.status = 'done'
-       AND ps.policy_type <> 'license'
+       AND ps.policy_type NOT IN (${STORE_ONLY_TYPE_LIST})
      ORDER BY pa.analyzed_at DESC
      LIMIT 1`,
     [siteId]
@@ -29,7 +38,7 @@ export async function getAnalysisHistory(siteId: string): Promise<PolicyAnalysis
      JOIN policy_sources ps ON ps.id = pa.policy_source_id
      JOIN policy_source_sites pss ON pss.policy_source_id = pa.policy_source_id
      WHERE pss.site_id = $1 AND pa.status = 'done'
-       AND ps.policy_type <> 'license'
+       AND ps.policy_type NOT IN (${STORE_ONLY_TYPE_LIST})
      ORDER BY pa.analyzed_at DESC`,
     [siteId]
   );
@@ -44,16 +53,17 @@ export async function insertAnalysis(
   rawResponse: unknown,
   modelUsed: string,
   promptVersion: string,
+  db: Queryable = pool,
 ): Promise<PolicyAnalysisRow> {
-  const { rows } = await pool.query<PolicyAnalysisRow>(
+  const { rows } = await db.query<PolicyAnalysisRow>(
     `INSERT INTO policy_analyses (
        policy_id, site_id, policy_source_id, model_used, prompt_version,
        shares_with_third_parties, shares_evidence,
        sells_data, sells_evidence,
        data_anonymized, anonymized_evidence,
        data_retention, user_rights, overall_score, summary, highlights,
-       raw_response, status
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,'done')
+       no_meaningful_policy, raw_response, status
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,'done')
      RETURNING *`,
     [
       policyId, siteId, policySourceId, modelUsed, promptVersion,
@@ -65,6 +75,9 @@ export async function insertAnalysis(
       result.overall_score,
       result.summary,
       result.highlights && result.highlights.length > 0 ? JSON.stringify(result.highlights) : null,
+      // Omitted in the result means "not flagged", not "not assessed" — an
+      // analysis that ran under this prompt version did consider the question.
+      result.no_meaningful_policy ?? false,
       JSON.stringify(rawResponse),
     ]
   );
@@ -140,7 +153,7 @@ export async function getRankings(limit: number): Promise<{
     JOIN primary_site ps_site ON ps_site.policy_source_id = pa.policy_source_id
     JOIN shared ON shared.policy_source_id = pa.policy_source_id
     WHERE pa.status = 'done'
-      AND src.policy_type <> 'license'
+      AND src.policy_type NOT IN (${STORE_ONLY_TYPE_LIST})
       AND ps_site.domain <> 'terms-vzh0.onrender.com'
       AND p.char_count >= 2000
       AND COALESCE(pa.summary, '') !~* $2
@@ -182,7 +195,7 @@ export async function getCoverageStats(): Promise<CoverageStats> {
        JOIN policy_sources ps ON ps.id = pa.policy_source_id
        WHERE pa.status = 'done'
          AND pa.overall_score IS NOT NULL
-         AND ps.policy_type <> 'license'
+         AND ps.policy_type NOT IN (${STORE_ONLY_TYPE_LIST})
          AND p.char_count >= 2000
          AND COALESCE(pa.summary, '') !~* $1
      ),

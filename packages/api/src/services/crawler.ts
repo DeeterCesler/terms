@@ -2,7 +2,11 @@ import { createHash } from 'crypto';
 import { JSDOM } from 'jsdom';
 import { Readability } from '@mozilla/readability';
 
-const MAX_CHARS = 120_000;
+// Upper bound on stored policy text. Some sites serve a combined privacy
+// policy + full Terms of Use on one page (e.g. everydayhealth.com at ~132k
+// chars), so this is sized to hold those without clipping the tail. Analysis
+// is done in-session against the stored text, not capped per request.
+const MAX_CHARS = 250_000;
 
 export interface CrawlResult {
   text: string;
