@@ -180,7 +180,7 @@ function renderFound(domain: string, result: any) {
   } else {
     const sentences = retention
       .split(/(?<=[.!?])\s+(?=[A-Z])/)
-      .map(s => s.trim())
+      .map((s: string) => s.trim())
       .filter(Boolean);
     if (sentences.length <= 1) {
       retentionEl.textContent = retention;
@@ -218,7 +218,7 @@ function renderFound(domain: string, result: any) {
   const summary = (a.summary ?? '').trim();
   const sentences = summary
     .split(/(?<=[.!?])\s+(?=[A-Z])/)
-    .map(s => s.trim())
+    .map((s: string) => s.trim())
     .filter(Boolean);
   const chunks = sentences.length > 0 ? sentences : [summary];
   for (const chunk of chunks) {
