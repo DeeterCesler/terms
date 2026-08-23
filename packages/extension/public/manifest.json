@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Policy Checker",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Instantly see how a website handles your data — privacy score, key findings, and plain-English summary.",
   "permissions": ["activeTab", "storage"],
   "action": {
