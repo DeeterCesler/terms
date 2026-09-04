@@ -282,7 +282,7 @@ async function requestRecheck(domain: string) {
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     btn.classList.add('hidden');
-    status.textContent = "Thanks — we'll re-check this policy soon.";
+    status.textContent = "Thanks, we'll re-check this policy soon.";
     status.classList.remove('hidden');
     // Drop the cached payload so the next open reflects the queued state.
     await chrome.storage.session.remove(cacheKeyFor(domain));
@@ -355,7 +355,7 @@ async function requestAnalysis(domain: string, url: string | null) {
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     btn.textContent = 'Requested';
-    status.textContent = "Thanks — we'll analyze this site soon.";
+    status.textContent = "Thanks, we'll analyze this site soon.";
     status.classList.remove('hidden');
     // Invalidate cache so the next popup open reflects the queued state.
     await chrome.storage.session.remove(cacheKeyFor(domain));
