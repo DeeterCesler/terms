@@ -10,6 +10,13 @@ import type { PolicyAnalysisRow, AnalysisResult } from '@term-checker/shared';
 const STORE_ONLY_POLICY_TYPES = ['license', 'recruitment_notice', 'other'] as const;
 const STORE_ONLY_TYPE_LIST = STORE_ONLY_POLICY_TYPES.map((t) => `'${t}'`).join(', ');
 
+// An announced upcoming policy (migration 010) is analyzed ahead of time, so its
+// analysis is the newest one for the source. Every public read path that picks
+// "the latest analysis" must filter on this or the upcoming policy goes live the
+// moment it is ingested. Once effective_at passes, the row qualifies on its own:
+// that is the whole promotion mechanism. Expects policies aliased as `p`.
+const IN_FORCE = '(p.effective_at IS NULL OR p.effective_at <= NOW())';
+
 export async function getLatestAnalysis(
   siteId: string,
 ): Promise<(PolicyAnalysisRow & { policy_url: string }) | null> {
@@ -18,15 +25,44 @@ export async function getLatestAnalysis(
   // Store-only analyses (license, recruitment, generic 'other'; privacy columns
   // are NULL) must never win here or they shadow the real privacy notice in the popup.
   const { rows } = await pool.query<PolicyAnalysisRow & { policy_url: string }>(
-    `SELECT pa.*, ps.url AS policy_url
+    `SELECT pa.*, COALESCE(p.url, ps.url) AS policy_url
      FROM policy_analyses pa
+     JOIN policies p ON p.id = pa.policy_id
      JOIN policy_sources ps ON ps.id = pa.policy_source_id
      JOIN policy_source_sites pss ON pss.policy_source_id = pa.policy_source_id
      WHERE pss.site_id = $1 AND pa.status = 'done'
        AND ps.policy_type NOT IN (${STORE_ONLY_TYPE_LIST})
+       AND ${IN_FORCE}
      ORDER BY pa.analyzed_at DESC
      LIMIT 1`,
     [siteId]
+  );
+  return rows[0] ?? null;
+}
+
+export type UpcomingAnalysisRow = PolicyAnalysisRow & { policy_url: string; effective_at: Date };
+
+/**
+ * The announced, not-yet-in-force policy for a source, if one has been analyzed.
+ * Scoped to a single source (the one /check is already showing) so a site with
+ * several sources never pairs its current privacy policy with some other
+ * document's upcoming version. Soonest effective date wins; within that, the
+ * newest analysis.
+ */
+export async function getUpcomingAnalysis(
+  policySourceId: string,
+): Promise<UpcomingAnalysisRow | null> {
+  const { rows } = await pool.query<UpcomingAnalysisRow>(
+    `SELECT pa.*, COALESCE(p.url, ps.url) AS policy_url, p.effective_at
+     FROM policy_analyses pa
+     JOIN policies p ON p.id = pa.policy_id
+     JOIN policy_sources ps ON ps.id = pa.policy_source_id
+     WHERE pa.policy_source_id = $1 AND pa.status = 'done'
+       AND ps.policy_type NOT IN (${STORE_ONLY_TYPE_LIST})
+       AND p.effective_at > NOW()
+     ORDER BY p.effective_at ASC, pa.analyzed_at DESC
+     LIMIT 1`,
+    [policySourceId]
   );
   return rows[0] ?? null;
 }
@@ -35,10 +71,12 @@ export async function getAnalysisHistory(siteId: string): Promise<PolicyAnalysis
   const { rows } = await pool.query<PolicyAnalysisRow>(
     `SELECT DISTINCT pa.*
      FROM policy_analyses pa
+     JOIN policies p ON p.id = pa.policy_id
      JOIN policy_sources ps ON ps.id = pa.policy_source_id
      JOIN policy_source_sites pss ON pss.policy_source_id = pa.policy_source_id
      WHERE pss.site_id = $1 AND pa.status = 'done'
        AND ps.policy_type NOT IN (${STORE_ONLY_TYPE_LIST})
+       AND ${IN_FORCE}
      ORDER BY pa.analyzed_at DESC`,
     [siteId]
   );
@@ -121,10 +159,12 @@ export async function getRankings(limit: number): Promise<{
   // list. Same filter runs on best for symmetry.
   const baseQuery = (direction: 'DESC' | 'ASC') => `
     WITH latest AS (
-      SELECT policy_source_id, MAX(analyzed_at) AS latest_at
-      FROM policy_analyses
-      WHERE status = 'done' AND overall_score IS NOT NULL
-      GROUP BY policy_source_id
+      SELECT pa.policy_source_id, MAX(pa.analyzed_at) AS latest_at
+      FROM policy_analyses pa
+      JOIN policies p ON p.id = pa.policy_id
+      WHERE pa.status = 'done' AND pa.overall_score IS NOT NULL
+        AND ${IN_FORCE}
+      GROUP BY pa.policy_source_id
     ),
     primary_site AS (
       SELECT pss.policy_source_id, s.domain
@@ -157,6 +197,7 @@ export async function getRankings(limit: number): Promise<{
       AND ps_site.domain <> 'terms-vzh0.onrender.com'
       AND p.char_count >= 2000
       AND COALESCE(pa.summary, '') !~* $2
+      AND ${IN_FORCE}
     ORDER BY pa.overall_score ${direction}, pa.analyzed_at DESC
     LIMIT $1`;
 
@@ -198,6 +239,7 @@ export async function getCoverageStats(): Promise<CoverageStats> {
          AND ps.policy_type NOT IN (${STORE_ONLY_TYPE_LIST})
          AND p.char_count >= 2000
          AND COALESCE(pa.summary, '') !~* $1
+         AND ${IN_FORCE}
      ),
      covered_sites AS (
        SELECT DISTINCT pss.site_id
@@ -223,15 +265,19 @@ export async function getCoverageStats(): Promise<CoverageStats> {
        ) AS sites_queued,
        (SELECT MAX(pa.analyzed_at)
           FROM policy_analyses pa
+          JOIN policies p ON p.id = pa.policy_id
           WHERE pa.status = 'done'
             AND pa.policy_source_id IN (SELECT policy_source_id FROM good_sources)
+            AND ${IN_FORCE}
        ) AS last_analyzed_at,
        (SELECT s.domain
           FROM policy_analyses pa
+          JOIN policies p ON p.id = pa.policy_id
           JOIN policy_sources ps ON ps.id = pa.policy_source_id
           JOIN sites s ON s.id = ps.site_id
           WHERE pa.status = 'done'
             AND pa.policy_source_id IN (SELECT policy_source_id FROM good_sources)
+            AND ${IN_FORCE}
           ORDER BY pa.analyzed_at DESC
           LIMIT 1
        ) AS last_added_domain`,

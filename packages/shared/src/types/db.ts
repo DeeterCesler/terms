@@ -35,6 +35,10 @@ export interface PolicyRow {
   char_count: number;
   http_status: number | null;
   is_current: boolean;
+  // NULL = in force. Future = announced upcoming policy (migration 010).
+  effective_at: Date | null;
+  // Version-specific URL when it differs from the source URL. NULL = source URL.
+  url: string | null;
   created_at: Date;
 }
 

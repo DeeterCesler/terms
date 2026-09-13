@@ -31,7 +31,17 @@ export function setCachedCheck(domain: string, value: CheckResult): void {
     const oldest = checkCache.keys().next().value;
     if (oldest !== undefined) checkCache.delete(oldest);
   }
-  checkCache.set(domain, { value, expiresAt: Date.now() + CHECK_CACHE_TTL_MS });
+  checkCache.set(domain, { value, expiresAt: checkExpiresAt(value, Date.now()) });
+}
+
+// An upcoming policy takes over at effectiveAt with no ingest (and so no cache
+// bust) to announce it, so the entry must not outlive that moment or the popup
+// keeps showing the old policy as current for up to a week.
+export function checkExpiresAt(value: CheckResult, now: number): number {
+  const ttl = now + CHECK_CACHE_TTL_MS;
+  if (!value.found || !value.upcoming) return ttl;
+  const effective = Date.parse(value.upcoming.effectiveAt);
+  return Number.isNaN(effective) ? ttl : Math.min(ttl, effective);
 }
 
 // Drop every cached entry for the given domains. Matches a key when it equals a

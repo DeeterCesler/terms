@@ -37,6 +37,15 @@ export interface CheckResponse {
     // builds, which don't know the field, keep rendering unchanged.
     noMeaningfulPolicy?: boolean;
   };
+  // An announced policy that has been published and analyzed but is not in
+  // force yet. `analysis` above is still the policy in effect today. Omitted
+  // when there is none, so already-shipped extension builds see the same
+  // payload they always have.
+  upcoming?: {
+    effectiveAt: string;
+    policyUrl: string;
+    analysis: CheckResponse['analysis'];
+  };
 }
 
 export interface RankingsResponse {

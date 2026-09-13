@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { getSiteByDomain } from '../db/queries/sites.js';
-import { getLatestAnalysis, getAnalysisHistory, getRankings } from '../db/queries/analyses.js';
+import { getLatestAnalysis, getAnalysisHistory, getRankings, getUpcomingAnalysis } from '../db/queries/analyses.js';
 import { getSitesForSource } from '../db/queries/policy_sources.js';
 import { addCandidate, getCandidateByDomain } from '../db/queries/candidates.js';
 import { normalizeDomain, domainLookupCandidates } from '../utils/domain.js';
@@ -109,6 +109,8 @@ publicRouter.get('/check/:domain', async (req, res, next) => {
       refreshRequestedAt: refreshCandidate?.refresh_requested_at,
     });
 
+    const upcoming = await getUpcomingAnalysis(analysis.policy_source_id);
+
     const result: CheckResult = {
       found: true,
       domain,
@@ -117,6 +119,15 @@ publicRouter.get('/check/:domain', async (req, res, next) => {
       ...(sharedDomains.length > 0 ? { sharedDomains } : {}),
       refresh,
       analysis: rowToAnalysis(analysis)!,
+      ...(upcoming
+        ? {
+            upcoming: {
+              effectiveAt: upcoming.effective_at.toISOString(),
+              policyUrl: upcoming.policy_url,
+              analysis: rowToAnalysis(upcoming)!,
+            },
+          }
+        : {}),
     };
     setCachedCheck(domain, result);
     res.json(result);
