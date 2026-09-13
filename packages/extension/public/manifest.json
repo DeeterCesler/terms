@@ -3,7 +3,7 @@
   "name": "Policy Checker",
   "version": "1.2.0",
   "description": "Instantly see how a website handles your data: privacy score, key findings, and plain-English summary.",
-  "permissions": ["activeTab", "storage"],
+  "permissions": ["activeTab", "storage", "scripting"],
   "action": {
     "default_popup": "popup.html",
     "default_title": "Policy Checker",
