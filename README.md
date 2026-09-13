@@ -1,6 +1,6 @@
 # Policy Checker
 
-A privacy policy analyzer: privacy policies are fetched, analyzed by Claude (locally), and inserted directly into a Postgres database. A Chrome extension popup surfaces the stored analysis. The deployed API is read-only — there is no server-side LLM call.
+A privacy policy analyzer: privacy policies are fetched, analyzed by Claude (locally), and inserted directly into a Postgres database. A Chrome extension popup surfaces the stored analysis. The deployed API is read-only; there is no server-side LLM call.
 
 ## Getting Started
 
@@ -17,8 +17,8 @@ cp .env.example .env
 ```
 
 Edit `.env` and set:
-- `DATABASE_URL` — Postgres connection string (Neon, Docker, etc.)
-- `ADMIN_SECRET` — random secret (32+ chars) for protecting admin GET/DELETE endpoints
+- `DATABASE_URL`: Postgres connection string (Neon, Docker, etc.)
+- `ADMIN_SECRET`: random secret (32+ chars) for protecting admin GET/DELETE endpoints
 
 ### 3. Start Postgres (skip if using Neon)
 
@@ -96,7 +96,7 @@ npx tsx scripts/analyze-existing.ts \
 
 #### Category 1 → 3 (fresh fetch + analyze in one go)
 
-Skips the DB lookup — fetch fresh and insert the analysis against a new `policies` row.
+Skips the DB lookup: fetch fresh and insert the analysis against a new `policies` row.
 
 ```bash
 # 1. Fetch
@@ -145,12 +145,12 @@ packages/
 ## API
 
 Public endpoints (rate-limited):
-- `GET /api/v1/check/:domain` — latest analysis for a domain
-- `GET /api/v1/check/:domain/history` — all past analyses
+- `GET /api/v1/check/:domain`: latest analysis for a domain
+- `GET /api/v1/check/:domain/history`: all past analyses
 - `GET /health`
 
 Admin endpoints (require `X-Admin-Secret` header):
-- `GET /admin/sites` — list all sites
-- `GET /admin/sites/:domain/sources` — list policy sources for a site
-- `DELETE /admin/sites/:domain` — remove a site
-- `GET|POST|DELETE /admin/candidates[...]` — manage the wishlist of sites to eventually analyze
+- `GET /admin/sites`: list all sites
+- `GET /admin/sites/:domain/sources`: list policy sources for a site
+- `DELETE /admin/sites/:domain`: remove a site
+- `GET|POST|DELETE /admin/candidates[...]`: manage the wishlist of sites to eventually analyze

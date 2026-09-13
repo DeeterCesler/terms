@@ -1076,7 +1076,7 @@
         const scoreTier = s.overallScore === null ? 'null' : s.overallScore >= 8 ? 'good' : s.overallScore >= 5 ? 'fair' : 'poor';
         const scoreHtml = s.overallScore !== null
           ? `<span class="score-badge ${scoreTier}">${s.overallScore}</span>`
-          : `<span class="score-badge null">—</span>`;
+          : `<span class="score-badge null">-</span>`;
 
         const analyzed = s.lastAnalyzed
           ? new Date(s.lastAnalyzed).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
@@ -1084,7 +1084,7 @@
 
         const queueHtml = s.queueStatus
           ? `<span class="status-badge status-${s.queueStatus}">${s.queueStatus}</span>`
-          : `<span class="status-badge status-none">—</span>`;
+          : `<span class="status-badge status-none">-</span>`;
 
         return `<tr>
           <td class="td-domain" title="${esc(s.domain)}">${esc(s.domain)}</td>
@@ -1206,7 +1206,7 @@
       const candidates = data.candidates ?? [];
       const countEl = document.getElementById('candidates-count');
       countEl.textContent = candidates.length
-        ? `— ${candidates.length} ${candidateFilter === 'pending' ? 'pending' : 'total'}`
+        ? `(${candidates.length} ${candidateFilter === 'pending' ? 'pending' : 'total'})`
         : '';
 
       if (candidates.length === 0) {
@@ -1222,15 +1222,15 @@
         const typeLabel = TYPE_LABELS[c.policy_type] ?? c.policy_type;
         const urlHtml = c.url
           ? `<a href="${esc(c.url)}" target="_blank" style="color:var(--proc-c);font-family:var(--mono);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px;display:inline-block;vertical-align:bottom">${esc(new URL(c.url).pathname)}</a>`
-          : '<span class="td-muted">—</span>';
+          : '<span class="td-muted">-</span>';
 
         return `<tr>
           <td class="td-domain" title="${esc(c.domain)}">${esc(c.domain)}</td>
-          <td class="td-muted">${c.product ? esc(c.product) : '—'}</td>
+          <td class="td-muted">${c.product ? esc(c.product) : '-'}</td>
           <td><span class="type-badge">${esc(typeLabel)}</span></td>
           <td>${urlHtml}</td>
           <td style="text-align:center"><span class="priority-pip ${pri}">${c.priority}</span></td>
-          <td class="td-muted" style="font-size:12px;max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.notes ? esc(c.notes) : '—'}</td>
+          <td class="td-muted" style="font-size:12px;max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.notes ? esc(c.notes) : '-'}</td>
           <td>
             <div class="td-actions">
               <button class="btn btn-danger" onclick="deleteCandidate('${esc(c.id)}', this)">Remove</button>
