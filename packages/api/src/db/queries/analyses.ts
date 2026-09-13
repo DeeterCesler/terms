@@ -7,7 +7,7 @@ import type { PolicyAnalysisRow, AnalysisResult } from '@term-checker/shared';
 // They live in the same tables but must never surface in any public read path,
 // or they shadow a site's real privacy notice in /check, the rankings, and
 // coverage stats. Keep every store-only filter below pointed at this one list.
-const STORE_ONLY_POLICY_TYPES = ['license', 'recruitment_notice', 'other'] as const;
+export const STORE_ONLY_POLICY_TYPES = ['license', 'recruitment_notice', 'other'] as const;
 const STORE_ONLY_TYPE_LIST = STORE_ONLY_POLICY_TYPES.map((t) => `'${t}'`).join(', ');
 
 // An announced upcoming policy (migration 010) is analyzed ahead of time, so its
@@ -15,7 +15,7 @@ const STORE_ONLY_TYPE_LIST = STORE_ONLY_POLICY_TYPES.map((t) => `'${t}'`).join('
 // "the latest analysis" must filter on this or the upcoming policy goes live the
 // moment it is ingested. Once effective_at passes, the row qualifies on its own:
 // that is the whole promotion mechanism. Expects policies aliased as `p`.
-const IN_FORCE = '(p.effective_at IS NULL OR p.effective_at <= NOW())';
+export const IN_FORCE = '(p.effective_at IS NULL OR p.effective_at <= NOW())';
 
 export async function getLatestAnalysis(
   siteId: string,

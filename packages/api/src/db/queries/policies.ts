@@ -1,12 +1,26 @@
 import { pool, type Queryable } from '../client.js';
 import type { PolicyRow } from '@term-checker/shared';
 
+/**
+ * The version of a source's policy that is in force right now.
+ *
+ * Usually the is_current row. But an announced policy (insertUpcomingPolicy)
+ * is stored with is_current = FALSE and takes over silently when its
+ * effective_at passes, with nothing flipping the flag. So candidates are the
+ * is_current row plus any upcoming row whose date has arrived, and the newest
+ * wins: the is_current row by when it was stored, an upcoming row by when it
+ * took effect. That way a refresh stored after the switch-over still beats it.
+ */
 export async function getCurrentPolicy(
   policySourceId: string,
   db: Queryable = pool,
 ): Promise<PolicyRow | null> {
   const { rows } = await db.query<PolicyRow>(
-    'SELECT * FROM policies WHERE policy_source_id = $1 AND is_current = TRUE',
+    `SELECT * FROM policies
+     WHERE policy_source_id = $1
+       AND (is_current = TRUE OR (effective_at IS NOT NULL AND effective_at <= NOW()))
+     ORDER BY CASE WHEN is_current THEN created_at ELSE effective_at END DESC
+     LIMIT 1`,
     [policySourceId]
   );
   return rows[0] ?? null;
