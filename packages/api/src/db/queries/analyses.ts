@@ -19,12 +19,13 @@ const IN_FORCE = '(p.effective_at IS NULL OR p.effective_at <= NOW())';
 
 export async function getLatestAnalysis(
   siteId: string,
+  db: Queryable = pool,
 ): Promise<(PolicyAnalysisRow & { policy_url: string }) | null> {
   // Join through policy_source_sites so shared corporate policies (e.g. Disney
   // covering espn.com, disneyplus.com, etc.) surface for every brand site.
   // Store-only analyses (license, recruitment, generic 'other'; privacy columns
   // are NULL) must never win here or they shadow the real privacy notice in the popup.
-  const { rows } = await pool.query<PolicyAnalysisRow & { policy_url: string }>(
+  const { rows } = await db.query<PolicyAnalysisRow & { policy_url: string }>(
     `SELECT pa.*, COALESCE(p.url, ps.url) AS policy_url
      FROM policy_analyses pa
      JOIN policies p ON p.id = pa.policy_id
@@ -51,8 +52,9 @@ export type UpcomingAnalysisRow = PolicyAnalysisRow & { policy_url: string; effe
  */
 export async function getUpcomingAnalysis(
   policySourceId: string,
+  db: Queryable = pool,
 ): Promise<UpcomingAnalysisRow | null> {
-  const { rows } = await pool.query<UpcomingAnalysisRow>(
+  const { rows } = await db.query<UpcomingAnalysisRow>(
     `SELECT pa.*, COALESCE(p.url, ps.url) AS policy_url, p.effective_at
      FROM policy_analyses pa
      JOIN policies p ON p.id = pa.policy_id
