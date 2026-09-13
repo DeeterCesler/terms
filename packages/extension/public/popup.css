@@ -112,6 +112,29 @@ main { padding: 12px 14px; }
   color: #991b1b;
 }
 
+/* Shown only when the site has announced a policy that is not in force yet. */
+.upcoming-note {
+  margin: 0 0 10px;
+  padding: 10px 12px 2px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #f9fafb;
+  font-size: 14px;
+  line-height: 1.45;
+  color: #1f2937;
+}
+.upcoming-note p { margin: 0 0 4px; }
+#upcoming-date { white-space: nowrap; }
+.upcoming-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #4f46e5;
+}
+.upcoming-link:hover { color: #3730a3; }
+
 /* Findings */
 .findings {
   display: flex;

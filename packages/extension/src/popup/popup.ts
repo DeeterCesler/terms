@@ -1,5 +1,6 @@
 import { normalizeDomain } from '../utils/domain.js';
 import { recheckState, type RefreshInfo } from '../utils/recheck.js';
+import { upcomingNotice, type UpcomingInfo } from '../utils/upcoming.js';
 
 const API_BASE = (import.meta.env.VITE_API_BASE as string | undefined) ?? 'https://terms-vzh0.onrender.com';
 
@@ -158,6 +159,8 @@ function renderFound(domain: string, result: any) {
   const noPolicyNote = document.getElementById('no-policy-note') as HTMLElement;
   noPolicyNote.classList.toggle('hidden', a.noMeaningfulPolicy !== true);
 
+  renderUpcoming(result.upcoming, a.overallScore);
+
   boolDisplay(a.sharesWithThirdParties.value, document.getElementById('f-shares') as HTMLElement);
   boolDisplay(a.sellsData.value, document.getElementById('f-sells') as HTMLElement);
 
@@ -233,6 +236,28 @@ function renderFound(domain: string, result: any) {
   renderRecheck(domain, result.refresh);
 
   show('state-found');
+}
+
+// "A new privacy policy takes effect <date>" with a link and the score it will
+// have. `upcoming` is absent for most sites and on older server builds; the
+// notice stays hidden then.
+function renderUpcoming(upcoming: UpcomingInfo | undefined, currentScore: number) {
+  const note = document.getElementById('upcoming-note') as HTMLElement;
+  const notice = upcomingNotice(upcoming, currentScore);
+  note.classList.toggle('hidden', notice === null);
+  if (!notice) return;
+
+  (document.getElementById('upcoming-date') as HTMLElement).textContent = notice.dateLabel;
+  (document.getElementById('upcoming-link') as HTMLAnchorElement).href = notice.href;
+
+  const scoreEl = document.getElementById('upcoming-score') as HTMLElement;
+  const change = notice.scoreChange;
+  scoreEl.classList.toggle('hidden', !change);
+  if (change) {
+    scoreEl.textContent = change.from === change.to
+      ? `Privacy score stays ${change.to}.`
+      : `Privacy score changes from ${change.from} to ${change.to}.`;
+  }
 }
 
 // The re-check affordance for a site we already cover. `refresh` is absent on
