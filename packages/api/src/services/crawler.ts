@@ -1,6 +1,7 @@
 import { createHash } from 'crypto';
 import { JSDOM } from 'jsdom';
 import { Readability } from '@mozilla/readability';
+import { extractStatedDate, type StatedDate } from './statedDate.js';
 
 // Upper bound on stored policy text. Some sites serve a combined privacy
 // policy + full Terms of Use on one page (e.g. everydayhealth.com at ~132k
@@ -13,6 +14,15 @@ export interface CrawlResult {
   contentHash: string;
   httpStatus: number;
   truncated: boolean;
+  statedDate: StatedDate | null;
+}
+
+export interface ProcessedText {
+  text: string;
+  contentHash: string;
+  truncated: boolean;
+  /** Date the document states about itself, read before normalization strips it. */
+  statedDate: StatedDate | null;
 }
 
 /**
@@ -73,7 +83,8 @@ export function normalizePolicyText(raw: string): string {
 export function processRawText(
   raw: string,
   contextUrl: string,
-): { text: string; contentHash: string; truncated: boolean } {
+): ProcessedText {
+  const statedDate = extractStatedDate(raw);
   const text = normalizePolicyText(raw);
   const truncated = text.length > MAX_CHARS;
   if (truncated) {
@@ -81,7 +92,7 @@ export function processRawText(
   }
   const stored = truncated ? text.slice(0, MAX_CHARS) : text;
   const contentHash = createHash('sha256').update(stored).digest('hex');
-  return { text: stored, contentHash, truncated };
+  return { text: stored, contentHash, truncated, statedDate };
 }
 
 /**
@@ -91,11 +102,21 @@ export function processRawText(
 export function extractPolicyText(
   html: string,
   url: string,
-): { text: string; contentHash: string; truncated: boolean } {
+): ProcessedText {
   const dom = new JSDOM(html, { url });
   const doc = dom.window.document;
 
-  for (const sel of ['script', 'style', 'nav', 'header', 'footer', 'aside', 'noscript', '[role="banner"]', '[role="navigation"]', '[role="complementary"]']) {
+  doc.querySelectorAll('script, style, noscript').forEach(el => el.remove());
+  // Read the stated date from a clone: version lines often sit in a <header>
+  // stripped below, and textContent runs adjacent blocks together ("Privacy
+  // PolicyLast updated"), so the clone gets block separators. Never add them to
+  // the real doc: that would shift every stored text and content hash.
+  const dateSource = doc.body?.cloneNode(true) as HTMLElement | undefined;
+  dateSource?.querySelectorAll('p, div, li, h1, h2, h3, h4, h5, h6, br, tr, section, article, header, footer')
+    .forEach(el => el.append('\n'));
+  const fullText = dateSource?.textContent ?? '';
+
+  for (const sel of ['nav', 'header', 'footer', 'aside', '[role="banner"]', '[role="navigation"]', '[role="complementary"]']) {
     doc.querySelectorAll(sel).forEach(el => el.remove());
   }
 
@@ -109,7 +130,8 @@ export function extractPolicyText(
     raw = doc.body?.textContent ?? '';
   }
 
-  return processRawText(raw, url);
+  const processed = processRawText(raw, url);
+  return { ...processed, statedDate: extractStatedDate(fullText) ?? processed.statedDate };
 }
 
 export async function crawlPolicyUrl(url: string): Promise<CrawlResult> {

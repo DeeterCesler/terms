@@ -39,6 +39,11 @@ export interface PolicyRow {
   effective_at: Date | null;
   // Version-specific URL when it differs from the source URL. NULL = source URL.
   url: string | null;
+  // Date the document states about itself, captured before normalization
+  // strips it (migration 011). Checked = FALSE means the row predates capture.
+  stated_date_text: string | null;
+  stated_date: Date | null;
+  stated_date_checked: boolean;
   created_at: Date;
 }
 
