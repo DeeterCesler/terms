@@ -45,3 +45,6 @@ code-audit.md
 scripts/*
 # Exception: DB schema migration runner is architecture
 !scripts/migrate.ts
+
+# Local Claude Code config
+.claude/
