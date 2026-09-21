@@ -63,6 +63,6 @@ describe('getUpcomingAnalysis', () => {
     expect(sql).toContain('p.effective_at > NOW()');
     expect(sql).not.toContain(IN_FORCE);
     expect(sql).toMatch(/ORDER BY p\.effective_at ASC/);
-    expect(sql).toMatch(/policy_type NOT IN \('license', 'recruitment_notice', 'other'\)/);
+    expect(sql).toMatch(/policy_type NOT IN \('license', 'recruitment_notice', 'hipaa_notice', 'other'\)/);
   });
 });

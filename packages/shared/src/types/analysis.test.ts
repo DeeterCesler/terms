@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { AnalysisResultSchema, RecruitmentAnalysisResultSchema } from './analysis.js';
+import {
+  AnalysisResultSchema,
+  RecruitmentAnalysisResultSchema,
+  HipaaAnalysisResultSchema,
+} from './analysis.js';
 
 const finding = { value: true, evidence: 'because the policy says so' };
 
@@ -85,5 +89,53 @@ describe('RecruitmentAnalysisResultSchema', () => {
     const { sells_or_shares_for_advertising, ...rest } = baseRecruitmentResult;
     const wrongShape = { ...rest, shares_with_third_parties: finding };
     expect(() => RecruitmentAnalysisResultSchema.parse(wrongShape)).toThrow();
+  });
+});
+
+describe('HipaaAnalysisResultSchema', () => {
+  const baseHipaaResult = {
+    underwriting_use: finding,
+    plan_sponsor_disclosure: finding,
+    marketing_requires_authorization: finding,
+    sensitive_category_protections: finding,
+    information_exchange_reporting: finding,
+    restriction_requests_binding: finding,
+    accounting_of_disclosures: finding,
+    state_law_rights: finding,
+    data_retention: '6 years',
+    exercise_mechanism: 'Written request by mail',
+    member_rights: ['access', 'amendment'],
+    covered_entities: ['Golden Rule Insurance Company'],
+    overall_score: 6,
+    summary: 'A standard HIPAA notice.',
+  };
+
+  it('parses a complete result', () => {
+    const result = HipaaAnalysisResultSchema.parse(baseHipaaResult);
+    expect(result.overall_score).toBe(6);
+    expect(result.covered_entities).toHaveLength(1);
+  });
+
+  it('accepts a null data_retention and exercise_mechanism', () => {
+    const result = HipaaAnalysisResultSchema.parse({
+      ...baseHipaaResult,
+      data_retention: null,
+      exercise_mechanism: null,
+    });
+    expect(result.data_retention).toBeNull();
+    expect(result.exercise_mechanism).toBeNull();
+  });
+
+  it('rejects a missing finding', () => {
+    const { information_exchange_reporting, ...withoutMib } = baseHipaaResult;
+    expect(() => HipaaAnalysisResultSchema.parse(withoutMib)).toThrow();
+  });
+
+  it('rejects an out-of-range score', () => {
+    expect(() => HipaaAnalysisResultSchema.parse({ ...baseHipaaResult, overall_score: 0 })).toThrow();
+  });
+
+  it('rejects a privacy result in its place', () => {
+    expect(() => HipaaAnalysisResultSchema.parse(basePrivacyResult)).toThrow();
   });
 });

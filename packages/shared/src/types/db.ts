@@ -6,6 +6,7 @@ export type PolicyType =
   | 'acceptable_use_policy'
   | 'license'
   | 'recruitment_notice'
+  | 'hipaa_notice'
   | 'other';
 
 export interface SiteRow {

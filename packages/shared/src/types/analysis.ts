@@ -77,6 +77,56 @@ export const RecruitmentAnalysisResultSchema = z.object({
 
 export type RecruitmentAnalysisResult = z.infer<typeof RecruitmentAnalysisResultSchema>;
 
+// HIPAA Notices of Privacy Practices (policy_type = 'hipaa_notice') are the
+// notice a health plan or covered provider must give about protected health
+// information. The relevant questions are nothing like the consumer privacy
+// lens: there is no ad-tech "sale" to ask about, but there is underwriting,
+// disclosure to an employer plan sponsor, reporting into insurance information
+// exchanges like MIB, and whether the extra-sensitive categories (substance
+// use, reproductive health, HIV, mental health) get protection above the HIPAA
+// floor. Like the license and recruitment lenses, the structured result is
+// stored in policy_analyses.raw_response, the privacy columns stay NULL, and
+// overall_score / summary / highlights are shared with the privacy schema for
+// reuse. Store-only: excluded from all public read paths, so a plan member
+// notice never stands in for the insurer website's own privacy policy.
+export const HipaaAnalysisResultSchema = z.object({
+  // PHI used to price or underwrite coverage. Genetic information is barred
+  // from underwriting by GINA, so a notice that stays silent on it is worse
+  // than one that says so.
+  underwriting_use: FindingSchema,
+  // Disclosure to an employer sponsoring the group plan, beyond the summary
+  // and enrollment data HIPAA already permits.
+  plan_sponsor_disclosure: FindingSchema,
+  // Marketing uses and any sale of PHI require written authorization.
+  marketing_requires_authorization: FindingSchema,
+  // Protections above the HIPAA floor for substance use (42 CFR Part 2),
+  // reproductive and sexual health, HIV, mental health, genetic, biometric.
+  sensitive_category_protections: FindingSchema,
+  // Reporting into an insurance information exchange (MIB) or pulling a
+  // consumer / investigative consumer report under the FCRA.
+  information_exchange_reporting: FindingSchema,
+  // Whether a requested restriction on use or disclosure is actually binding,
+  // or the plan reserves the right to refuse it.
+  restriction_requests_binding: FindingSchema,
+  // The HIPAA right to an accounting of disclosures, and how far back it runs.
+  accounting_of_disclosures: FindingSchema,
+  // Deletion, amendment, or other rights granted under state law on top of HIPAA.
+  state_law_rights: FindingSchema,
+  data_retention: z.string().nullable(),
+  // How the notice says a member actually exercises rights: in writing, by
+  // phone, online. A written-only route is a real friction cost.
+  exercise_mechanism: z.string().nullable(),
+  member_rights: z.array(z.string()),
+  // Legal entities the notice is issued on behalf of. A single notice often
+  // covers several underwriters.
+  covered_entities: z.array(z.string()),
+  overall_score: z.number().int().min(1).max(10),
+  summary: z.string(),
+  highlights: z.array(HighlightSchema).optional(),
+});
+
+export type HipaaAnalysisResult = z.infer<typeof HipaaAnalysisResultSchema>;
+
 export const SCORE_TIERS = {
   GOOD: { min: 8, max: 10, label: 'Good', color: '#22c55e' },
   FAIR: { min: 5, max: 7, label: 'Fair', color: '#f59e0b' },
@@ -92,3 +142,4 @@ export function getScoreTier(score: number) {
 export const PROMPT_VERSION = '1.0.0';
 export const LICENSE_PROMPT_VERSION = '1.0.0';
 export const RECRUITMENT_PROMPT_VERSION = '1.0.0';
+export const HIPAA_PROMPT_VERSION = '1.0.0';

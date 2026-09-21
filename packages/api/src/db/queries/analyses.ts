@@ -1,13 +1,19 @@
 import { pool, type Queryable } from '../client.js';
 import type { PolicyAnalysisRow, AnalysisResult } from '@term-checker/shared';
 
-// Store-only policy types are analyzed through non-privacy lenses (license and
-// recruitment have their own schemas; 'other' is a generic catch-all for legal
-// docs like customer agreements) and stored with the privacy columns left NULL.
+// Store-only policy types are analyzed through non-privacy lenses (license,
+// recruitment, and HIPAA each have their own schema; 'other' is a generic
+// catch-all for legal docs like customer agreements) and stored with the
+// privacy columns left NULL.
 // They live in the same tables but must never surface in any public read path,
 // or they shadow a site's real privacy notice in /check, the rankings, and
 // coverage stats. Keep every store-only filter below pointed at this one list.
-export const STORE_ONLY_POLICY_TYPES = ['license', 'recruitment_notice', 'other'] as const;
+export const STORE_ONLY_POLICY_TYPES = [
+  'license',
+  'recruitment_notice',
+  'hipaa_notice',
+  'other',
+] as const;
 const STORE_ONLY_TYPE_LIST = STORE_ONLY_POLICY_TYPES.map((t) => `'${t}'`).join(', ');
 
 // An announced upcoming policy (migration 010) is analyzed ahead of time, so its
