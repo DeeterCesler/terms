@@ -9,7 +9,7 @@ import { errorHandler } from './middleware/errorHandler.js';
 import { publicRouter } from './routes/public.js';
 import { adminRouter } from './routes/admin.js';
 import { config } from './config.js';
-import { getRankings, getCoverageStats } from './db/queries/analyses.js';
+import { getRankings, getCoverageStats, type RankedPolicyType } from './db/queries/analyses.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -63,17 +63,45 @@ function renderStatsStrip(stats: { sites_covered: number; sites_queued: number; 
   return (
     `<div class="stat"><span class="stat-value">${sites}</span><span class="stat-label">Sites analyzed</span></div>` +
     `<div class="stat"><span class="stat-value">${queued}</span><span class="stat-label">Sites queued</span></div>` +
-    `<div class="stat"><span class="stat-value">Updated: ${updated}</span><span class="stat-label">Last Added: ${lastAdded}</span></div>`
+    `<div class="stat"><span class="stat-value">Updated: ${updated}</span><span class="stat-label">Last added: ${lastAdded}</span></div>`
   );
 }
 
-async function renderRankingsPage(): Promise<string> {
+type RankingsDoc = 'privacy' | 'terms';
+
+const RANKINGS_DOCS: Record<RankingsDoc, { type: RankedPolicyType; tab: string; lede: string }> = {
+  privacy: {
+    type: 'privacy_policy',
+    tab: 'Privacy policies',
+    lede: 'Privacy policy scores from our latest analysis of each site. Updated as new analyses land.',
+  },
+  terms: {
+    type: 'terms_of_service',
+    tab: 'Terms of Service',
+    lede: 'Terms of Service scores from our latest analysis of each site. Updated as new analyses land.',
+  },
+};
+
+function renderDocTabs(active: RankingsDoc): string {
+  return (Object.keys(RANKINGS_DOCS) as RankingsDoc[]).map((doc) => {
+    const href = doc === 'privacy' ? '/' : '/?doc=terms';
+    const current = doc === active ? ' aria-current="page"' : '';
+    return `<a class="doc-tab" href="${href}"${current}>${RANKINGS_DOCS[doc].tab}</a>`;
+  }).join('');
+}
+
+// Privacy policies and Terms of Service are ranked and counted separately; the
+// page shows one at a time, picked by ?doc=terms (privacy is the default).
+async function renderRankingsPage(doc: RankingsDoc): Promise<string> {
+  const { type, lede } = RANKINGS_DOCS[doc];
   const [template, { best, worst }, stats] = await Promise.all([
     readFile(join(__dirname, '../public/rankings.html'), 'utf8'),
-    getRankings(5),
-    getCoverageStats(),
+    getRankings(5, type),
+    getCoverageStats(type),
   ]);
   return template
+    .replace('<!--DOC_TABS-->', renderDocTabs(doc))
+    .replace('<!--LEDE-->', escapeHtml(lede))
     .replace('<!--STATS_STRIP-->', renderStatsStrip(stats))
     .replace('<!--BEST_ROWS-->', renderRankingRows(best))
     .replace('<!--WORST_ROWS-->', renderRankingRows(worst));
@@ -101,9 +129,10 @@ export function createApp() {
     res.sendFile(join(__dirname, '../public/privacy.html'));
   });
 
-  const rankingsHandler: express.RequestHandler = async (_req, res, next) => {
+  const rankingsHandler: express.RequestHandler = async (req, res, next) => {
     try {
-      const html = await renderRankingsPage();
+      const doc: RankingsDoc = req.query.doc === 'terms' ? 'terms' : 'privacy';
+      const html = await renderRankingsPage(doc);
       res.type('html').send(html);
     } catch (err) {
       next(err);

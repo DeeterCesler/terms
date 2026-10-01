@@ -23,22 +23,51 @@ const STORE_ONLY_TYPE_LIST = STORE_ONLY_POLICY_TYPES.map((t) => `'${t}'`).join('
 // that is the whole promotion mechanism. Expects policies aliased as `p`.
 export const IN_FORCE = '(p.effective_at IS NULL OR p.effective_at <= NOW())';
 
+export type LatestAnalysisRow = PolicyAnalysisRow & { policy_url: string; policy_type: string };
+
 export async function getLatestAnalysis(
   siteId: string,
   db: Queryable = pool,
-): Promise<(PolicyAnalysisRow & { policy_url: string }) | null> {
+): Promise<LatestAnalysisRow | null> {
   // Join through policy_source_sites so shared corporate policies (e.g. Disney
   // covering espn.com, disneyplus.com, etc.) surface for every brand site.
   // Store-only analyses (license, recruitment, generic 'other'; privacy columns
   // are NULL) must never win here or they shadow the real privacy notice in the popup.
-  const { rows } = await db.query<PolicyAnalysisRow & { policy_url: string }>(
-    `SELECT pa.*, COALESCE(p.url, ps.url) AS policy_url
+  // A privacy policy beats any other visible type (terms_of_service) regardless of
+  // age; other types only surface for sites with no privacy analysis at all.
+  const { rows } = await db.query<LatestAnalysisRow>(
+    `SELECT pa.*, COALESCE(p.url, ps.url) AS policy_url, ps.policy_type
      FROM policy_analyses pa
      JOIN policies p ON p.id = pa.policy_id
      JOIN policy_sources ps ON ps.id = pa.policy_source_id
      JOIN policy_source_sites pss ON pss.policy_source_id = pa.policy_source_id
      WHERE pss.site_id = $1 AND pa.status = 'done'
        AND ps.policy_type NOT IN (${STORE_ONLY_TYPE_LIST})
+       AND ${IN_FORCE}
+     ORDER BY (ps.policy_type = 'privacy_policy') DESC, pa.analyzed_at DESC
+     LIMIT 1`,
+    [siteId]
+  );
+  return rows[0] ?? null;
+}
+
+/**
+ * The newest in-force Terms of Service analysis for a site, for the extension's
+ * Terms tab. Only needed when getLatestAnalysis returned the privacy policy; when
+ * a site has no privacy analysis, getLatestAnalysis already returns its ToS.
+ */
+export async function getLatestTermsAnalysis(
+  siteId: string,
+  db: Queryable = pool,
+): Promise<LatestAnalysisRow | null> {
+  const { rows } = await db.query<LatestAnalysisRow>(
+    `SELECT pa.*, COALESCE(p.url, ps.url) AS policy_url, ps.policy_type
+     FROM policy_analyses pa
+     JOIN policies p ON p.id = pa.policy_id
+     JOIN policy_sources ps ON ps.id = pa.policy_source_id
+     JOIN policy_source_sites pss ON pss.policy_source_id = pa.policy_source_id
+     WHERE pss.site_id = $1 AND pa.status = 'done'
+       AND ps.policy_type = 'terms_of_service'
        AND ${IN_FORCE}
      ORDER BY pa.analyzed_at DESC
      LIMIT 1`,
@@ -154,7 +183,13 @@ export interface RankingRow {
   shared_domains: string[];
 }
 
-export async function getRankings(limit: number): Promise<{
+// The two document types the public site ranks and counts separately.
+export type RankedPolicyType = 'privacy_policy' | 'terms_of_service';
+
+export async function getRankings(
+  limit: number,
+  policyType: RankedPolicyType = 'privacy_policy',
+): Promise<{
   best: RankingRow[];
   worst: RankingRow[];
 }> {
@@ -201,7 +236,7 @@ export async function getRankings(limit: number): Promise<{
     JOIN primary_site ps_site ON ps_site.policy_source_id = pa.policy_source_id
     JOIN shared ON shared.policy_source_id = pa.policy_source_id
     WHERE pa.status = 'done'
-      AND src.policy_type NOT IN (${STORE_ONLY_TYPE_LIST})
+      AND src.policy_type = $3
       AND ps_site.domain <> 'terms-vzh0.onrender.com'
       AND p.char_count >= 2000
       AND COALESCE(pa.summary, '') !~* $2
@@ -211,11 +246,11 @@ export async function getRankings(limit: number): Promise<{
 
   const { rows: best } = await pool.query<RankingRow>(
     baseQuery('DESC'),
-    [limit, FETCH_ISSUE_REGEX]
+    [limit, FETCH_ISSUE_REGEX, policyType]
   );
   const { rows: worst } = await pool.query<RankingRow>(
     baseQuery('ASC'),
-    [limit, FETCH_ISSUE_REGEX]
+    [limit, FETCH_ISSUE_REGEX, policyType]
   );
   return { best, worst };
 }
@@ -227,7 +262,9 @@ export interface CoverageStats {
   last_added_domain: string | null;
 }
 
-export async function getCoverageStats(): Promise<CoverageStats> {
+export async function getCoverageStats(
+  policyType: RankedPolicyType = 'privacy_policy',
+): Promise<CoverageStats> {
   // Counts "good" coverage only: same quality filter as getRankings (no thin
   // policies, no fetch-issue summaries, no self-domain). Keeps the public
   // total honest about what visitors can actually look up.
@@ -244,7 +281,7 @@ export async function getCoverageStats(): Promise<CoverageStats> {
        JOIN policy_sources ps ON ps.id = pa.policy_source_id
        WHERE pa.status = 'done'
          AND pa.overall_score IS NOT NULL
-         AND ps.policy_type NOT IN (${STORE_ONLY_TYPE_LIST})
+         AND ps.policy_type = $2
          AND p.char_count >= 2000
          AND COALESCE(pa.summary, '') !~* $1
          AND ${IN_FORCE}
@@ -260,7 +297,8 @@ export async function getCoverageStats(): Promise<CoverageStats> {
        (SELECT COUNT(*) FROM covered_sites) AS sites_covered,
        (SELECT COUNT(*)
           FROM policy_candidates c
-          WHERE NOT EXISTS (
+          WHERE c.policy_type = $2
+            AND NOT EXISTS (
             SELECT 1
             FROM policy_sources ps
             JOIN sites s ON s.id = ps.site_id
@@ -289,7 +327,7 @@ export async function getCoverageStats(): Promise<CoverageStats> {
           ORDER BY pa.analyzed_at DESC
           LIMIT 1
        ) AS last_added_domain`,
-    [FETCH_ISSUE_REGEX]
+    [FETCH_ISSUE_REGEX, policyType]
   );
   const row = rows[0]!;
   return {

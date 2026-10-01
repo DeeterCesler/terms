@@ -36,16 +36,27 @@
         <div class="domain-row">
           <span class="domain-name" id="found-domain"></span>
         </div>
+        <div class="doc-tabs" role="tablist" aria-label="Policy documents">
+          <button type="button" class="doc-tab" id="tab-privacy" role="tab" aria-controls="doc-panel">
+            <span>Privacy</span><span class="tab-score" id="tab-privacy-score"></span>
+          </button>
+          <button type="button" class="doc-tab" id="tab-terms" role="tab" aria-controls="doc-panel">
+            <span>Terms</span><span class="tab-score" id="tab-terms-score"></span>
+          </button>
+        </div>
+        <div id="doc-panel" role="tabpanel">
+        <p class="doc-missing hidden" id="doc-missing"></p>
+        <div id="doc-body">
         <div class="score-section">
           <div class="score-badge" id="score-badge">–</div>
-          <div class="score-label">Privacy Score<br/><span id="score-tier"></span></div>
+          <div class="score-label"><span id="score-kind">Privacy Score</span><br/><span id="score-tier"></span></div>
         </div>
         <p class="no-policy-note hidden" id="no-policy-note">
           This site doesn’t publish a real privacy policy; what’s there is
           boilerplate with no rights, retention limits, or way to delete your data.
         </p>
         <div class="upcoming-note hidden" id="upcoming-note" role="note">
-          <p>A new privacy policy takes effect <strong id="upcoming-date"></strong>.</p>
+          <p>A new <span id="upcoming-doc">privacy policy</span> takes effect <strong id="upcoming-date"></strong>.</p>
           <p class="hidden" id="upcoming-score"></p>
           <a class="upcoming-link" id="upcoming-link" target="_blank" rel="noopener noreferrer">Read the new policy</a>
         </div>
@@ -109,6 +120,8 @@
                   aria-label="Request a fresh analysis of this site's privacy policy">Policy changed?</button>
           <span class="recheck-status hidden" id="recheck-status" role="status"></span>
           <span class="last-analyzed">Last analyzed: <span id="last-analyzed"></span></span>
+        </div>
+        </div>
         </div>
       </div>
     </main>

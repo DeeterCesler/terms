@@ -46,11 +46,30 @@ export interface CheckResponse {
     policyUrl: string;
     analysis: CheckResponse['analysis'];
   };
+  // Which document `analysis` above describes. The privacy policy whenever the
+  // site has one; 'terms_of_service' only for sites with no privacy analysis.
+  // Optional so responses from older server builds still type-check; extension
+  // builds before 1.4.0 ignore it and keep showing `analysis` as before.
+  documentType?: 'privacy_policy' | 'terms_of_service';
+  // The site's Terms of Service, when `analysis` is the privacy policy and a ToS
+  // has also been analyzed. Feeds the extension's Terms tab; omitted otherwise,
+  // so older extension builds see an unchanged payload.
+  terms?: {
+    policyUrl: string;
+    lastAnalyzed: string;
+    analysis: CheckResponse['analysis'];
+  };
 }
 
 export interface RankingsResponse {
+  // Privacy policy rankings (unchanged shape for existing consumers).
   best: Array<{ domain: string; overallScore: number; summary: string; sharedDomains?: string[] }>;
   worst: Array<{ domain: string; overallScore: number; summary: string; sharedDomains?: string[] }>;
+  // Terms of Service rankings, ranked separately. Optional for older servers.
+  terms?: {
+    best: Array<{ domain: string; overallScore: number; summary: string; sharedDomains?: string[] }>;
+    worst: Array<{ domain: string; overallScore: number; summary: string; sharedDomains?: string[] }>;
+  };
 }
 
 export interface CheckNotFoundResponse {

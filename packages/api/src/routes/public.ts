@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { getSiteByDomain } from '../db/queries/sites.js';
-import { getLatestAnalysis, getAnalysisHistory, getRankings, getUpcomingAnalysis } from '../db/queries/analyses.js';
+import { getLatestAnalysis, getLatestTermsAnalysis, getAnalysisHistory, getRankings, getUpcomingAnalysis } from '../db/queries/analyses.js';
 import { getSitesForSource } from '../db/queries/policy_sources.js';
 import { addCandidate, getCandidateByDomain } from '../db/queries/candidates.js';
 import { normalizeDomain, domainLookupCandidates } from '../utils/domain.js';
@@ -34,20 +34,23 @@ function rowToAnalysis(row: PolicyAnalysisRow | null) {
 // subdomains down to the registrable domain (open.spotify.com -> spotify.com).
 // Returns null when we have nothing for any candidate.
 async function resolveAnalyzedDomain(domain: string): Promise<
-  { domain: string; analysis: NonNullable<Awaited<ReturnType<typeof getLatestAnalysis>>> } | null
+  { domain: string; siteId: string; analysis: NonNullable<Awaited<ReturnType<typeof getLatestAnalysis>>> } | null
 > {
   for (const candidate of domainLookupCandidates(domain)) {
     const site = await getSiteByDomain(candidate);
     if (!site) continue;
     const found = await getLatestAnalysis(site.id);
-    if (found) return { domain: candidate, analysis: found };
+    if (found) return { domain: candidate, siteId: site.id, analysis: found };
   }
   return null;
 }
 
 publicRouter.get('/rankings', async (_req, res, next) => {
   try {
-    const { best, worst } = await getRankings(5);
+    const [{ best, worst }, terms] = await Promise.all([
+      getRankings(5, 'privacy_policy'),
+      getRankings(5, 'terms_of_service'),
+    ]);
     const mapRow = (r: { domain: string; overall_score: number; summary: string; shared_domains: string[] }) => ({
       domain: r.domain,
       overallScore: r.overall_score,
@@ -57,6 +60,7 @@ publicRouter.get('/rankings', async (_req, res, next) => {
     const result: RankingsResponse = {
       best: best.map(mapRow),
       worst: worst.map(mapRow),
+      terms: { best: terms.best.map(mapRow), worst: terms.worst.map(mapRow) },
     };
     res.json(result);
   } catch (err) {
@@ -111,6 +115,12 @@ publicRouter.get('/check/:domain', async (req, res, next) => {
 
     const upcoming = await getUpcomingAnalysis(analysis.policy_source_id);
 
+    // getLatestAnalysis prefers the privacy policy, so a ToS only lands in
+    // `analysis` when the site has no privacy analysis. Otherwise the ToS, if
+    // any, rides along as `terms` for the extension's Terms tab.
+    const documentType = analysis.policy_type === 'terms_of_service' ? 'terms_of_service' : 'privacy_policy';
+    const terms = documentType === 'privacy_policy' ? await getLatestTermsAnalysis(resolved!.siteId) : null;
+
     const result: CheckResult = {
       found: true,
       domain,
@@ -125,6 +135,16 @@ publicRouter.get('/check/:domain', async (req, res, next) => {
               effectiveAt: upcoming.effective_at.toISOString(),
               policyUrl: upcoming.policy_url,
               analysis: rowToAnalysis(upcoming)!,
+            },
+          }
+        : {}),
+      documentType,
+      ...(terms
+        ? {
+            terms: {
+              policyUrl: terms.policy_url,
+              lastAnalyzed: terms.analyzed_at.toISOString(),
+              analysis: rowToAnalysis(terms)!,
             },
           }
         : {}),

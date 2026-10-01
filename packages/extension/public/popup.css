@@ -66,6 +66,51 @@ main { padding: 12px 14px; }
   word-break: break-all;
 }
 
+/* Privacy / Terms tabs. Each tab carries its score so both are visible at a
+   glance; a tab for a document we have not analyzed stays clickable but muted. */
+.doc-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid #e5e7eb;
+}
+.doc-tab {
+  flex: 1;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 10px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: #4b5563;
+  cursor: pointer;
+}
+.doc-tab:hover { color: #111; }
+.doc-tab:focus-visible { outline: 2px solid #4f46e5; outline-offset: -2px; border-radius: 4px; }
+.doc-tab[aria-selected="true"] { color: #111; border-bottom-color: #1a1a2e; }
+.doc-tab.is-empty { color: #9ca3af; font-weight: 500; }
+.doc-tab.is-empty[aria-selected="true"] { border-bottom-color: #d1d5db; }
+.tab-score { font-size: 14px; font-weight: 700; }
+.tab-score.good { color: #15803d; }
+.tab-score.fair { color: #b45309; }
+.tab-score.poor { color: #b91c1c; }
+.doc-tab.is-empty .tab-score { color: #9ca3af; font-weight: 500; }
+
+.doc-missing {
+  margin: 8px 0 12px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #6b7280;
+  text-align: center;
+}
+
 .score-section {
   display: flex;
   align-items: center;

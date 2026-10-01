@@ -1,6 +1,7 @@
 import { normalizeDomain } from '../utils/domain.js';
 import { recheckState, type RefreshInfo } from '../utils/recheck.js';
 import { upcomingNotice, type UpcomingInfo } from '../utils/upcoming.js';
+import { splitDocuments, type DocKind, type PolicyDoc, type PolicyDocs } from '../utils/documents.js';
 
 const API_BASE = (import.meta.env.VITE_API_BASE as string | undefined) ?? 'https://terms-vzh0.onrender.com';
 
@@ -142,10 +143,84 @@ function renderHighlights(a: any) {
   }
 }
 
-function renderFound(domain: string, result: any) {
-  const a = result.analysis;
+const DOC_LABELS: Record<DocKind, { tab: string; score: string; noun: string; missing: string }> = {
+  privacy: {
+    tab: 'Privacy',
+    score: 'Privacy Score',
+    noun: 'privacy policy',
+    missing: "We haven't analyzed this site's privacy policy yet.",
+  },
+  terms: {
+    tab: 'Terms',
+    score: 'Terms Score',
+    noun: 'Terms of Service',
+    missing: "We haven't analyzed this site's Terms of Service yet.",
+  },
+};
 
+// Privacy and Terms tabs. Both are always shown; a document we have not
+// analyzed keeps a muted, still-clickable tab that explains why it is empty.
+function renderFound(domain: string, result: any) {
   (document.getElementById('found-domain') as HTMLElement).textContent = domain;
+
+  const docs = splitDocuments(result);
+  const tabs: Record<DocKind, HTMLButtonElement> = {
+    privacy: document.getElementById('tab-privacy') as HTMLButtonElement,
+    terms: document.getElementById('tab-terms') as HTMLButtonElement,
+  };
+
+  for (const kind of ['privacy', 'terms'] as DocKind[]) {
+    const doc = docs[kind];
+    const tab = tabs[kind];
+    const scoreEl = document.getElementById(`tab-${kind}-score`) as HTMLElement;
+    tab.classList.toggle('is-empty', !doc);
+    if (doc) {
+      scoreEl.textContent = String(doc.analysis.overallScore);
+      scoreEl.className = `tab-score ${scoreTierClass(doc.analysis.overallScore)}`;
+      tab.setAttribute('aria-label', `${DOC_LABELS[kind].tab}, score ${doc.analysis.overallScore} out of 10`);
+    } else {
+      scoreEl.textContent = 'none';
+      scoreEl.className = 'tab-score';
+      tab.setAttribute('aria-label', `${DOC_LABELS[kind].tab}, not analyzed yet`);
+    }
+    tab.onclick = () => selectDoc(domain, docs, kind);
+    tab.onkeydown = (e: KeyboardEvent) => {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      const other: DocKind = kind === 'privacy' ? 'terms' : 'privacy';
+      selectDoc(domain, docs, other);
+      tabs[other].focus();
+    };
+  }
+
+  selectDoc(domain, docs, docs.initial);
+  show('state-found');
+}
+
+function selectDoc(domain: string, docs: PolicyDocs, kind: DocKind) {
+  for (const k of ['privacy', 'terms'] as DocKind[]) {
+    const tab = document.getElementById(`tab-${k}`) as HTMLButtonElement;
+    const selected = k === kind;
+    tab.setAttribute('aria-selected', String(selected));
+    tab.tabIndex = selected ? 0 : -1;
+  }
+
+  const doc = docs[kind];
+  const missing = document.getElementById('doc-missing') as HTMLElement;
+  const body = document.getElementById('doc-body') as HTMLElement;
+  missing.classList.toggle('hidden', doc !== null);
+  body.classList.toggle('hidden', doc === null);
+  if (!doc) {
+    missing.textContent = DOC_LABELS[kind].missing;
+    return;
+  }
+  renderDoc(domain, doc);
+}
+
+function renderDoc(domain: string, doc: PolicyDoc) {
+  const a = doc.analysis;
+  const labels = DOC_LABELS[doc.kind];
+
+  (document.getElementById('score-kind') as HTMLElement).textContent = labels.score;
 
   const badge = document.getElementById('score-badge') as HTMLElement;
   badge.textContent = String(a.overallScore);
@@ -157,9 +232,9 @@ function renderFound(domain: string, result: any) {
   // score alone reads as "bad policy" rather than "no policy worth the name".
   // The field is absent for every site that isn't flagged.
   const noPolicyNote = document.getElementById('no-policy-note') as HTMLElement;
-  noPolicyNote.classList.toggle('hidden', a.noMeaningfulPolicy !== true);
+  noPolicyNote.classList.toggle('hidden', doc.kind !== 'privacy' || a.noMeaningfulPolicy !== true);
 
-  renderUpcoming(result.upcoming, a.overallScore);
+  renderUpcoming(doc.upcoming, a.overallScore, doc.kind);
 
   boolDisplay(a.sharesWithThirdParties.value, document.getElementById('f-shares') as HTMLElement);
   boolDisplay(a.sellsData.value, document.getElementById('f-sells') as HTMLElement);
@@ -231,21 +306,25 @@ function renderFound(domain: string, result: any) {
   }
 
   (document.getElementById('last-analyzed') as HTMLElement).textContent =
-    new Date(result.lastAnalyzed).toLocaleDateString();
+    new Date(doc.lastAnalyzed).toLocaleDateString();
 
-  renderRecheck(domain, result.refresh);
-
-  show('state-found');
+  // Re-check state comes with the top-level document only; the other tab shows
+  // no button rather than one that would refresh a different document.
+  document.getElementById('recheck-btn')?.setAttribute(
+    'aria-label', `Request a fresh analysis of this site's ${labels.noun}`);
+  renderRecheck(domain, doc.refresh);
 }
 
 // "A new privacy policy takes effect <date>" with a link and the score it will
 // have. `upcoming` is absent for most sites and on older server builds; the
 // notice stays hidden then.
-function renderUpcoming(upcoming: UpcomingInfo | undefined, currentScore: number) {
+function renderUpcoming(upcoming: UpcomingInfo | undefined, currentScore: number, kind: DocKind) {
   const note = document.getElementById('upcoming-note') as HTMLElement;
   const notice = upcomingNotice(upcoming, currentScore);
   note.classList.toggle('hidden', notice === null);
   if (!notice) return;
+
+  (document.getElementById('upcoming-doc') as HTMLElement).textContent = DOC_LABELS[kind].noun;
 
   (document.getElementById('upcoming-date') as HTMLElement).textContent = notice.dateLabel;
   (document.getElementById('upcoming-link') as HTMLAnchorElement).href = notice.href;
@@ -255,8 +334,8 @@ function renderUpcoming(upcoming: UpcomingInfo | undefined, currentScore: number
   scoreEl.classList.toggle('hidden', !change);
   if (change) {
     scoreEl.textContent = change.from === change.to
-      ? `Privacy score stays ${change.to}.`
-      : `Privacy score changes from ${change.from} to ${change.to}.`;
+      ? `${DOC_LABELS[kind].tab} score stays ${change.to}.`
+      : `${DOC_LABELS[kind].tab} score changes from ${change.from} to ${change.to}.`;
   }
 }
 
@@ -269,6 +348,7 @@ function renderRecheck(domain: string, refresh: RefreshInfo | undefined) {
   if (!btn || !status) return;
 
   btn.classList.add('hidden');
+  btn.onclick = null;
   btn.disabled = false;
   btn.textContent = 'Policy changed?';
   status.classList.add('hidden');
@@ -286,7 +366,12 @@ function renderRecheck(domain: string, refresh: RefreshInfo | undefined) {
   }
 
   btn.classList.remove('hidden');
-  btn.addEventListener('click', () => requestRecheck(domain), { once: true });
+  // onclick, not addEventListener: switching tabs re-renders this button, and
+  // stacked listeners would send one request per render.
+  btn.onclick = () => {
+    btn.onclick = null;
+    requestRecheck(domain);
+  };
 }
 
 // Same public endpoint as a first-time request; the server recognizes an

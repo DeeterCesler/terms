@@ -6,10 +6,12 @@ import express from 'express';
 const getSiteByDomain = vi.fn();
 const getLatestAnalysis = vi.fn();
 const getUpcomingAnalysis = vi.fn();
+const getLatestTermsAnalysis = vi.fn();
 
 vi.mock('../db/queries/sites.js', () => ({ getSiteByDomain }));
 vi.mock('../db/queries/analyses.js', () => ({
   getLatestAnalysis,
+  getLatestTermsAnalysis,
   getUpcomingAnalysis,
   getAnalysisHistory: vi.fn(),
   getRankings: vi.fn(),
@@ -68,6 +70,7 @@ beforeEach(() => {
   getSiteByDomain.mockReset().mockImplementation(async (domain: string) => ({ id: `site-${domain}`, domain }));
   getLatestAnalysis.mockReset().mockImplementation(async () => analysisRow());
   getUpcomingAnalysis.mockReset().mockImplementation(async () => null);
+  getLatestTermsAnalysis.mockReset().mockImplementation(async () => null);
 });
 
 describe('GET /check/:domain upcoming', () => {
@@ -111,5 +114,49 @@ describe('GET /check/:domain upcoming', () => {
 
     expect(body.found).toBe(false);
     expect(getUpcomingAnalysis).not.toHaveBeenCalled();
+  });
+});
+
+describe('GET /check/:domain privacy and terms', () => {
+  it('labels the privacy policy and omits terms when the site has no ToS', async () => {
+    getLatestAnalysis.mockImplementation(async () => analysisRow({ policy_type: 'privacy_policy' }));
+    const body = await (await fetch(`${base}/check/${nextDomain()}`)).json();
+
+    expect(body.documentType).toBe('privacy_policy');
+    // Absent, not null: shipped extension builds must see the same payload.
+    expect('terms' in body).toBe(false);
+  });
+
+  it('sends the ToS as terms alongside the privacy analysis', async () => {
+    getLatestAnalysis.mockImplementation(async () => analysisRow({ policy_type: 'privacy_policy', overall_score: 5 }));
+    getLatestTermsAnalysis.mockImplementation(async () =>
+      analysisRow({
+        id: 'a2',
+        policy_source_id: 'src2',
+        policy_type: 'terms_of_service',
+        policy_url: 'https://example.com/terms',
+        analyzed_at: new Date('2026-09-20T00:00:00Z'),
+        overall_score: 3,
+        summary: 'terms',
+      }));
+    const body = await (await fetch(`${base}/check/${nextDomain()}`)).json();
+
+    // The top-level fields older extensions read are still the privacy policy.
+    expect(body.analysis.overallScore).toBe(5);
+    expect(body.policyUrl).toBe('https://example.com/privacy');
+    expect(body.terms).toEqual({
+      policyUrl: 'https://example.com/terms',
+      lastAnalyzed: '2026-09-20T00:00:00.000Z',
+      analysis: expect.objectContaining({ overallScore: 3, summary: 'terms' }),
+    });
+  });
+
+  it('labels a ToS-only site and does not look for a second ToS', async () => {
+    getLatestAnalysis.mockImplementation(async () => analysisRow({ policy_type: 'terms_of_service' }));
+    const body = await (await fetch(`${base}/check/${nextDomain()}`)).json();
+
+    expect(body.documentType).toBe('terms_of_service');
+    expect('terms' in body).toBe(false);
+    expect(getLatestTermsAnalysis).not.toHaveBeenCalled();
   });
 });

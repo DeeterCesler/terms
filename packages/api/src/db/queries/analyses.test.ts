@@ -11,6 +11,7 @@ vi.mock('../client.js', () => ({ pool: { query: queryMock } }));
 const {
   IN_FORCE,
   getLatestAnalysis,
+  getLatestTermsAnalysis,
   getAnalysisHistory,
   getRankings,
   getCoverageStats,
@@ -29,6 +30,7 @@ beforeEach(() => {
 describe('public read paths only see policies in force', () => {
   it.each([
     ['getLatestAnalysis', () => getLatestAnalysis('site')],
+    ['getLatestTermsAnalysis', () => getLatestTermsAnalysis('site')],
     ['getAnalysisHistory', () => getAnalysisHistory('site')],
     ['getRankings', () => getRankings(5)],
     ['getCoverageStats', () => getCoverageStats()],
@@ -64,5 +66,37 @@ describe('getUpcomingAnalysis', () => {
     expect(sql).not.toContain(IN_FORCE);
     expect(sql).toMatch(/ORDER BY p\.effective_at ASC/);
     expect(sql).toMatch(/policy_type NOT IN \('license', 'recruitment_notice', 'hipaa_notice', 'other'\)/);
+  });
+});
+
+describe('getLatestAnalysis document preference', () => {
+  it('ranks the privacy policy ahead of a newer terms of service', async () => {
+    await getLatestAnalysis('site');
+    expect(sent()[0]).toMatch(/ORDER BY \(ps\.policy_type = 'privacy_policy'\) DESC, pa\.analyzed_at DESC/);
+  });
+
+  it('getLatestTermsAnalysis only reads terms of service', async () => {
+    await getLatestTermsAnalysis('site');
+    expect(sent()[0]).toContain("ps.policy_type = 'terms_of_service'");
+  });
+});
+
+describe('rankings and coverage are split by document type', () => {
+  it.each([
+    ['getRankings', () => getRankings(5, 'terms_of_service')],
+    ['getCoverageStats', () => getCoverageStats('terms_of_service')],
+  ])('%s passes the requested type', async (_name, run) => {
+    await run();
+    for (const call of queryMock.mock.calls) {
+      expect(call[1]).toContain('terms_of_service');
+    }
+  });
+
+  it('defaults to privacy policies', async () => {
+    await getRankings(5);
+    await getCoverageStats();
+    for (const call of queryMock.mock.calls) {
+      expect(call[1]).toContain('privacy_policy');
+    }
   });
 });
