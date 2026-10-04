@@ -127,6 +127,59 @@ export const HipaaAnalysisResultSchema = z.object({
 
 export type HipaaAnalysisResult = z.infer<typeof HipaaAnalysisResultSchema>;
 
+// German-market lens. Germany has no separate privacy regime: the DSGVO is the
+// GDPR itself. What differs is the national layer on top of it, and that layer
+// is what this lens asks about: the BDSG (data protection officer threshold,
+// credit scoring), the TDDDG (consent before any non-essential cookie or other
+// device access, section 25), and the German habit of a Datenschutzerklaerung
+// that names a legal basis and a storage period for every single purpose.
+// Unlike the license, recruitment and HIPAA lenses this is not a policy type:
+// it is a supplementary reading of an ordinary privacy policy, stored next to
+// the standard result under raw_response.german. The privacy columns and the
+// standard overall_score are untouched, so nothing on a public read path
+// changes. overall_score here grades the German layer only.
+export const GermanAnalysisResultSchema = z.object({
+  // The Verantwortlicher is named with a full postal address (Art. 13(1)(a)),
+  // not just a brand name or a contact form.
+  controller_identified: FindingSchema,
+  // A Datenschutzbeauftragter with contact details (Art. 13(1)(b)). Mandatory
+  // under BDSG section 38 once 20 people regularly process personal data.
+  dpo_named: FindingSchema,
+  // An Art. 6 legal basis is cited per purpose, rather than one blanket list.
+  legal_basis_per_purpose: FindingSchema,
+  // Tracking, profiling or advertising rested on legitimate interest
+  // (Art. 6(1)(f)) where German regulators expect consent.
+  legitimate_interest_for_tracking: FindingSchema,
+  // Non-essential cookies and similar device access only after opt-in consent
+  // (TDDDG section 25). A policy still citing the TTDSG or TMG is out of date.
+  cookie_consent_opt_in: FindingSchema,
+  // Transfers outside the EU/EEA, in practice mostly to the US.
+  third_country_transfers: FindingSchema,
+  // The safeguard relied on for those transfers: Data Privacy Framework,
+  // standard contractual clauses, an Art. 49 derogation. Null when none is given.
+  transfer_safeguards: z.string().nullable(),
+  // The right to complain (Art. 77) names the competent Landesbehoerde instead
+  // of pointing at "a supervisory authority".
+  supervisory_authority_named: FindingSchema,
+  // The Widerspruchsrecht is set apart from the other rights, as Art. 21(4)
+  // requires, not buried in a list.
+  objection_right_separate: FindingSchema,
+  // Consent can be withdrawn as easily as it was given (Art. 7(3)).
+  consent_withdrawal: FindingSchema,
+  // Credit checks or scoring through SCHUFA or a similar agency (BDSG
+  // section 31), or other solely automated decisions under Art. 22.
+  credit_scoring_or_automated_decisions: FindingSchema,
+  // Storage periods. German policies usually lean on the statutory commercial
+  // and tax retention duties (HGB section 257, AO section 147: 6 to 10 years).
+  data_retention: z.string().nullable(),
+  data_subject_rights: z.array(z.string()),
+  overall_score: z.number().int().min(1).max(10),
+  summary: z.string(),
+  highlights: z.array(HighlightSchema).optional(),
+});
+
+export type GermanAnalysisResult = z.infer<typeof GermanAnalysisResultSchema>;
+
 export const SCORE_TIERS = {
   GOOD: { min: 8, max: 10, label: 'Good', color: '#22c55e' },
   FAIR: { min: 5, max: 7, label: 'Fair', color: '#f59e0b' },
@@ -143,3 +196,4 @@ export const PROMPT_VERSION = '1.0.0';
 export const LICENSE_PROMPT_VERSION = '1.0.0';
 export const RECRUITMENT_PROMPT_VERSION = '1.0.0';
 export const HIPAA_PROMPT_VERSION = '1.0.0';
+export const GERMAN_PROMPT_VERSION = '1.0.0';

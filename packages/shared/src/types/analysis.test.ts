@@ -3,6 +3,7 @@ import {
   AnalysisResultSchema,
   RecruitmentAnalysisResultSchema,
   HipaaAnalysisResultSchema,
+  GermanAnalysisResultSchema,
 } from './analysis.js';
 
 const finding = { value: true, evidence: 'because the policy says so' };
@@ -137,5 +138,54 @@ describe('HipaaAnalysisResultSchema', () => {
 
   it('rejects a privacy result in its place', () => {
     expect(() => HipaaAnalysisResultSchema.parse(basePrivacyResult)).toThrow();
+  });
+});
+
+describe('GermanAnalysisResultSchema', () => {
+  const baseGermanResult = {
+    controller_identified: finding,
+    dpo_named: finding,
+    legal_basis_per_purpose: finding,
+    legitimate_interest_for_tracking: finding,
+    cookie_consent_opt_in: finding,
+    third_country_transfers: finding,
+    transfer_safeguards: 'EU-US Data Privacy Framework',
+    supervisory_authority_named: finding,
+    objection_right_separate: finding,
+    consent_withdrawal: finding,
+    credit_scoring_or_automated_decisions: finding,
+    data_retention: '10 years under AO section 147',
+    data_subject_rights: ['Auskunft', 'Loeschung', 'Widerspruch'],
+    overall_score: 7,
+    summary: 'A thorough Datenschutzerklaerung.',
+  };
+
+  it('parses a complete result', () => {
+    const result = GermanAnalysisResultSchema.parse(baseGermanResult);
+    expect(result.overall_score).toBe(7);
+    expect(result.data_subject_rights).toHaveLength(3);
+  });
+
+  it('accepts a null transfer_safeguards and data_retention', () => {
+    const result = GermanAnalysisResultSchema.parse({
+      ...baseGermanResult,
+      transfer_safeguards: null,
+      data_retention: null,
+    });
+    expect(result.transfer_safeguards).toBeNull();
+    expect(result.data_retention).toBeNull();
+  });
+
+  it('rejects a missing finding', () => {
+    const { cookie_consent_opt_in, ...withoutCookies } = baseGermanResult;
+    expect(() => GermanAnalysisResultSchema.parse(withoutCookies)).toThrow();
+  });
+
+  it('rejects an out-of-range score', () => {
+    expect(() => GermanAnalysisResultSchema.parse({ ...baseGermanResult, overall_score: 11 })).toThrow();
+  });
+
+  it('rejects a privacy result in its place', () => {
+    expect(() => GermanAnalysisResultSchema.parse(basePrivacyResult)).toThrow();
   });
 });
