@@ -1,4 +1,4 @@
-FROM node:20-alpine AS builder
+FROM node:24-alpine AS builder
 WORKDIR /app
 
 COPY package.json ./
@@ -16,7 +16,7 @@ COPY packages/api ./packages/api
 RUN npm run build --workspace=packages/shared
 RUN npm run build --workspace=packages/api
 
-FROM node:20-alpine
+FROM node:24-alpine
 WORKDIR /app
 
 COPY --from=builder /app/node_modules ./node_modules
