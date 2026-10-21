@@ -9,6 +9,10 @@ export interface CheckResponse {
   // statements like Disney covering disney.com, espn.com, etc.). Optional on
   // the wire so already-shipped extension builds keep working.
   sharedDomains?: string[];
+  // The domain the policy belongs to: the policy family's primary site, so
+  // chrome.google.com or youtube.com report google.com. Optional so older
+  // extension builds ignore it and newer ones fall back to `domain`.
+  policyDomain?: string;
   // Whether the user can ask us to re-check this policy, and whether someone
   // already has. Optional on the wire so already-shipped extension builds,
   // which don't render a recheck button at all, keep working unchanged.

@@ -103,6 +103,7 @@ publicRouter.get('/check/:domain', async (req, res, next) => {
     const sharedDomains = sharedSites
       .map(s => s.domain)
       .filter(d => d !== domain && d !== matchedDomain);
+    const policyDomain = sharedSites.find(s => s.is_primary)?.domain ?? matchedDomain;
 
     // Refresh state is keyed on the domain the analysis actually lives on, so a
     // request from open.spotify.com reports (and later queues) against
@@ -127,6 +128,7 @@ publicRouter.get('/check/:domain', async (req, res, next) => {
       policyUrl: analysis.policy_url,
       lastAnalyzed: analysis.analyzed_at.toISOString(),
       ...(sharedDomains.length > 0 ? { sharedDomains } : {}),
+      policyDomain,
       refresh,
       analysis: rowToAnalysis(analysis)!,
       ...(upcoming
