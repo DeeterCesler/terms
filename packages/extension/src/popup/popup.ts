@@ -8,7 +8,7 @@ const API_BASE = (import.meta.env.VITE_API_BASE as string | undefined) ?? 'https
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 min cache per domain
 
 function show(id: string) {
-  ['state-loading', 'state-not-found', 'state-error', 'state-found', 'state-local'].forEach(s => {
+  ['state-loading', 'state-not-found', 'state-error', 'state-found', 'state-local', 'state-internal'].forEach(s => {
     const el = document.getElementById(s);
     if (el) el.classList.toggle('hidden', s !== id);
   });
@@ -161,7 +161,8 @@ const DOC_LABELS: Record<DocKind, { tab: string; score: string; noun: string; mi
 // Privacy and Terms tabs. Both are always shown; a document we have not
 // analyzed keeps a muted, still-clickable tab that explains why it is empty.
 function renderFound(domain: string, result: any) {
-  (document.getElementById('found-domain') as HTMLElement).textContent = domain;
+  (document.getElementById('found-domain') as HTMLElement).textContent =
+    `Policy for ${result.policyDomain ?? domain}`;
 
   const docs = splitDocuments(result);
   const tabs: Record<DocKind, HTMLButtonElement> = {
@@ -490,9 +491,12 @@ async function main() {
   }, 3000);
 
   try {
+    // Browser-internal pages (brave://extensions, chrome://settings, the Web
+    // Store) either hide their URL from the extension or aren't websites, so
+    // there is no policy to look up. Say so rather than showing an error.
     const url = await getCurrentUrl();
-    if (!url) {
-      show('state-error');
+    if (!url || !/^https?:/i.test(url)) {
+      show('state-internal');
       return;
     }
 
@@ -505,7 +509,7 @@ async function main() {
 
     const domain = normalizeDomain(url);
     if (!domain) {
-      show('state-error');
+      show('state-internal');
       return;
     }
 
