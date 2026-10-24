@@ -6,10 +6,10 @@ const connectMock = vi.fn(async () => ({ query: queryMock, release: releaseMock 
 
 vi.mock('pg', () => ({
   default: {
-    Pool: vi.fn().mockImplementation(() => ({
-      connect: connectMock,
-      on: vi.fn(),
-    })),
+    // vitest 4 calls mock implementations with `new`, so this must be constructible
+    Pool: vi.fn().mockImplementation(function () {
+      return { connect: connectMock, on: vi.fn() };
+    }),
   },
 }));
 
