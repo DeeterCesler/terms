@@ -6,15 +6,14 @@ import express from 'express';
 const getSiteByDomain = vi.fn();
 const getLatestAnalysis = vi.fn();
 const getUpcomingAnalysis = vi.fn();
-const getLatestTermsAnalysis = vi.fn();
-const getPathScopedTerms = vi.fn();
+const getTermsDocs = vi.fn();
 
 vi.mock('../db/queries/sites.js', () => ({ getSiteByDomain }));
 vi.mock('../db/queries/analyses.js', () => ({
   getLatestAnalysis,
-  getLatestTermsAnalysis,
   getUpcomingAnalysis,
-  getPathScopedTerms,
+  getTermsDocs,
+  termsLabel: (p: string | null) => p ?? 'Terms of Service',
   getAnalysisHistory: vi.fn(),
   getRankings: vi.fn(),
 }));
@@ -72,8 +71,7 @@ beforeEach(() => {
   getSiteByDomain.mockReset().mockImplementation(async (domain: string) => ({ id: `site-${domain}`, domain }));
   getLatestAnalysis.mockReset().mockImplementation(async () => analysisRow());
   getUpcomingAnalysis.mockReset().mockImplementation(async () => null);
-  getLatestTermsAnalysis.mockReset().mockImplementation(async () => null);
-  getPathScopedTerms.mockReset().mockImplementation(async () => []);
+  getTermsDocs.mockReset().mockImplementation(async () => []);
 });
 
 describe('GET /check/:domain upcoming', () => {
@@ -130,18 +128,22 @@ describe('GET /check/:domain privacy and terms', () => {
     expect('terms' in body).toBe(false);
   });
 
-  it('sends the ToS as terms alongside the privacy analysis', async () => {
+  const termsRow = (o: Record<string, unknown>) => ({
+    ...analysisRow({ policy_type: 'terms_of_service', ...o }),
+    product: null,
+    path_prefix: null,
+    ...o,
+  });
+
+  it('sends the default ToS as terms and every ToS as termsDocs', async () => {
     getLatestAnalysis.mockImplementation(async () => analysisRow({ policy_type: 'privacy_policy', overall_score: 5 }));
-    getLatestTermsAnalysis.mockImplementation(async () =>
-      analysisRow({
-        id: 'a2',
-        policy_source_id: 'src2',
-        policy_type: 'terms_of_service',
-        policy_url: 'https://example.com/terms',
-        analyzed_at: new Date('2026-09-20T00:00:00Z'),
-        overall_score: 3,
-        summary: 'terms',
-      }));
+    getTermsDocs.mockImplementation(async () => [
+      termsRow({ id: 'a2', policy_source_id: 'src2', policy_url: 'https://example.com/terms',
+        analyzed_at: new Date('2026-09-20T00:00:00Z'), overall_score: 3, summary: 'terms' }),
+      termsRow({ id: 'a3', policy_source_id: 'src3', policy_url: 'https://example.com/biz',
+        analyzed_at: new Date('2026-11-10T00:00:00Z'), overall_score: 2, summary: 'biz',
+        product: 'Business Terms', path_prefix: '/business-hub' }),
+    ]);
     const body = await (await fetch(`${base}/check/${nextDomain()}`)).json();
 
     // The top-level fields older extensions read are still the privacy policy.
@@ -152,50 +154,35 @@ describe('GET /check/:domain privacy and terms', () => {
       lastAnalyzed: '2026-09-20T00:00:00.000Z',
       analysis: expect.objectContaining({ overallScore: 3, summary: 'terms' }),
     });
+    expect(body.termsDocs).toEqual([
+      { label: 'Terms of Service', policyUrl: 'https://example.com/terms', lastAnalyzed: '2026-09-20T00:00:00.000Z',
+        analysis: expect.objectContaining({ overallScore: 3 }) },
+      { label: 'Business Terms', pathPrefix: '/business-hub', policyUrl: 'https://example.com/biz',
+        lastAnalyzed: '2026-11-10T00:00:00.000Z', analysis: expect.objectContaining({ overallScore: 2 }) },
+    ]);
   });
 
-  it('labels a ToS-only site and does not look for a second ToS', async () => {
+  it('never sends a path-scoped ToS as the legacy terms field', async () => {
+    getLatestAnalysis.mockImplementation(async () => analysisRow({ policy_type: 'privacy_policy', overall_score: 7 }));
+    getTermsDocs.mockImplementation(async () => [
+      termsRow({ policy_url: 'https://example.com/biz', product: 'Business Terms', path_prefix: '/business-hub' }),
+    ]);
+    const body = await (await fetch(`${base}/check/${nextDomain()}`)).json();
+    expect('terms' in body).toBe(false);
+    expect(body.termsDocs).toHaveLength(1);
+  });
+
+  it('labels a ToS-only site and omits the legacy terms field', async () => {
     getLatestAnalysis.mockImplementation(async () => analysisRow({ policy_type: 'terms_of_service' }));
     const body = await (await fetch(`${base}/check/${nextDomain()}`)).json();
 
     expect(body.documentType).toBe('terms_of_service');
     expect('terms' in body).toBe(false);
-    expect(getLatestTermsAnalysis).not.toHaveBeenCalled();
   });
 
-  it('omits pathTerms when the site has no path-scoped terms', async () => {
+  it('omits termsDocs when the site has no ToS', async () => {
     getLatestAnalysis.mockImplementation(async () => analysisRow({ policy_type: 'privacy_policy' }));
     const body = await (await fetch(`${base}/check/${nextDomain()}`)).json();
-    expect('pathTerms' in body).toBe(false);
-  });
-
-  it('sends path-scoped terms as pathTerms without touching terms', async () => {
-    getLatestAnalysis.mockImplementation(async () => analysisRow({ policy_type: 'privacy_policy', overall_score: 7 }));
-    getPathScopedTerms.mockImplementation(async () => [
-      {
-        ...analysisRow({
-          id: 'a3',
-          policy_source_id: 'src3',
-          policy_type: 'terms_of_service',
-          policy_url: 'https://example.com/biz-terms',
-          analyzed_at: new Date('2026-11-10T00:00:00Z'),
-          overall_score: 2,
-          summary: 'biz',
-        }),
-        path_prefix: '/business-hub',
-      },
-    ]);
-    const body = await (await fetch(`${base}/check/${nextDomain()}`)).json();
-
-    expect(body.analysis.overallScore).toBe(7);
-    expect('terms' in body).toBe(false);
-    expect(body.pathTerms).toEqual([
-      {
-        pathPrefix: '/business-hub',
-        policyUrl: 'https://example.com/biz-terms',
-        lastAnalyzed: '2026-11-10T00:00:00.000Z',
-        analysis: expect.objectContaining({ overallScore: 2, summary: 'biz' }),
-      },
-    ]);
+    expect('termsDocs' in body).toBe(false);
   });
 });

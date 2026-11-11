@@ -63,12 +63,16 @@ export interface CheckResponse {
     lastAnalyzed: string;
     analysis: CheckResponse['analysis'];
   };
-  // Terms that replace `terms` only on pages under a path (chatgpt.com/business-hub
-  // runs under OpenAI's Businesses in ChatGPT Terms). Longest prefix first. The
-  // extension matches the tab's path locally so paths never reach the server.
-  // Omitted when there are none; older extension builds ignore it.
-  pathTerms?: Array<{
-    pathPrefix: string;
+  // Every Terms document for the site, so a site with several (consumer terms,
+  // seller terms, chatgpt.com/business-hub's Businesses in ChatGPT Terms) can
+  // offer all of them. Order: site-wide first (the first one is the default and
+  // matches `terms`), then path-scoped entries, longest prefix first. A
+  // `pathPrefix` entry applies only to pages under that path; the extension
+  // matches the tab's path locally so paths never reach the server. Omitted when
+  // the site has no Terms; older extension builds ignore it.
+  termsDocs?: Array<{
+    label: string;
+    pathPrefix?: string;
     policyUrl: string;
     lastAnalyzed: string;
     analysis: CheckResponse['analysis'];

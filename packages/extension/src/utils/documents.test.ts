@@ -58,42 +58,65 @@ describe('splitDocuments', () => {
   });
 });
 
-describe('path-scoped terms', () => {
-  const withPath = {
+describe('termsDocs', () => {
+  const doc = (label: string, score: number, extra: Record<string, unknown> = {}) =>
+    ({ label, policyUrl: `https://example.com/${score}`, lastAnalyzed: 'x', analysis: analysis(score), ...extra });
+  const withDocs = {
     ...base,
     documentType: 'privacy_policy',
-    terms: { policyUrl: 'https://example.com/terms', lastAnalyzed: 'x', analysis: analysis(6) },
-    pathTerms: [
-      { pathPrefix: '/business-hub', policyUrl: 'https://example.com/biz-terms', lastAnalyzed: 'y', analysis: analysis(2) },
+    terms: { policyUrl: 'https://example.com/6', lastAnalyzed: 'x', analysis: analysis(6) },
+    termsDocs: [
+      doc('Terms of Service', 6),
+      doc('Seller Terms', 4),
+      doc('Businesses in ChatGPT Terms', 2, { pathPrefix: '/business-hub' }),
     ],
   };
 
-  it('swaps in the scoped terms and opens on Terms under the prefix', () => {
+  it('opens on the path-scoped terms under the prefix', () => {
     for (const p of ['/business-hub', '/business-hub/', '/business-hub/agents/1']) {
-      const docs = splitDocuments(withPath, p);
-      expect(docs.terms?.analysis.overallScore).toBe(2);
-      expect(docs.terms?.policyUrl).toBe('https://example.com/biz-terms');
+      const docs = splitDocuments(withDocs, p);
+      expect(docs.terms?.label).toBe('Businesses in ChatGPT Terms');
       expect(docs.privacy?.analysis.overallScore).toBe(5);
       expect(docs.initial).toBe('terms');
+      expect(docs.termsOptions).toHaveLength(3);
     }
   });
 
-  it('keeps the site-wide terms elsewhere, matching whole segments only', () => {
-    for (const p of [undefined, '/', '/c/abc', '/business-hubris', '/en/business-hub']) {
-      const docs = splitDocuments(withPath, p);
-      expect(docs.terms?.analysis.overallScore).toBe(6);
+  it('defaults to the first site-wide terms elsewhere, matching whole segments only', () => {
+    for (const p of [undefined, '/', '/business-hubris', '/en/business-hub']) {
+      const docs = splitDocuments(withDocs, p);
+      expect(docs.terms?.label).toBe('Terms of Service');
       expect(docs.initial).toBe('privacy');
     }
   });
 
-  it('applies scoped terms when the site has only a ToS', () => {
-    const docs = splitDocuments({ ...withPath, documentType: 'terms_of_service', terms: undefined }, '/business-hub');
-    expect(docs.privacy).toBeNull();
-    expect(docs.terms?.analysis.overallScore).toBe(2);
+  it('selects nothing when only path-scoped terms exist and the path does not match', () => {
+    const docs = splitDocuments({ ...withDocs, terms: undefined, termsDocs: [withDocs.termsDocs[2]] }, '/');
+    expect(docs.terms).toBeNull();
+    expect(docs.termsOptions).toHaveLength(1);
+    expect(docs.initial).toBe('privacy');
   });
 
-  it('ignores malformed pathTerms entries', () => {
-    const docs = splitDocuments({ ...withPath, pathTerms: [{ pathPrefix: '/business-hub' }, null] }, '/business-hub');
+  it('keeps re-check state on the default terms of a ToS-only site', () => {
+    const docs = splitDocuments(
+      { ...withDocs, documentType: 'terms_of_service', policyUrl: 'https://example.com/6', analysis: analysis(6), terms: undefined },
+      '/',
+    );
+    expect(docs.privacy).toBeNull();
+    expect(docs.terms?.refresh).toEqual(base.refresh);
+    expect(docs.initial).toBe('terms');
+  });
+
+  it('drops malformed entries', () => {
+    const docs = splitDocuments({ ...withDocs, termsDocs: [null, { label: 'x' }, doc('Terms of Service', 6)] });
+    expect(docs.termsOptions).toHaveLength(1);
+  });
+
+  it('falls back to the single terms block on servers without termsDocs', () => {
+    const { termsDocs: _drop, ...legacy } = withDocs;
+    const docs = splitDocuments(legacy, '/business-hub');
     expect(docs.terms?.analysis.overallScore).toBe(6);
+    expect(docs.termsOptions).toHaveLength(1);
+    expect(docs.initial).toBe('privacy');
   });
 });

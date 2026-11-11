@@ -23,9 +23,10 @@ const STORE_ONLY_TYPE_LIST = STORE_ONLY_POLICY_TYPES.map((t) => `'${t}'`).join('
 // that is the whole promotion mechanism. Expects policies aliased as `p`.
 export const IN_FORCE = '(p.effective_at IS NULL OR p.effective_at <= NOW())';
 
-// Path-scoped sources (migration 013) govern only pages under a fixed path on
-// their sites, so every domain-level read path skips them; they reach the
-// extension solely through getPathScopedTerms. Pass the policy_sources alias.
+// A site link with a path_prefix (migration 014) applies only to pages under
+// that path on that site (chatgpt.com/business-hub), so every domain-level read
+// path skips it; it reaches the extension only through getTermsDocs. Pass the
+// policy_source_sites alias.
 export const DOMAIN_WIDE = (alias: string) => `${alias}.path_prefix IS NULL`;
 
 export type LatestAnalysisRow = PolicyAnalysisRow & { policy_url: string; policy_type: string };
@@ -48,70 +49,58 @@ export async function getLatestAnalysis(
      JOIN policy_source_sites pss ON pss.policy_source_id = pa.policy_source_id
      WHERE pss.site_id = $1 AND pa.status = 'done'
        AND ps.policy_type NOT IN (${STORE_ONLY_TYPE_LIST})
-       AND ${DOMAIN_WIDE('ps')}
+       AND ${DOMAIN_WIDE('pss')}
        AND ${IN_FORCE}
-     ORDER BY (ps.policy_type = 'privacy_policy') DESC, pa.analyzed_at DESC
+     ORDER BY (ps.policy_type = 'privacy_policy') DESC, (ps.product IS NULL) DESC, pa.analyzed_at DESC
      LIMIT 1`,
     [siteId]
   );
   return rows[0] ?? null;
 }
 
-/**
- * The newest in-force Terms of Service analysis for a site, for the extension's
- * Terms tab. Only needed when getLatestAnalysis returned the privacy policy; when
- * a site has no privacy analysis, getLatestAnalysis already returns its ToS.
- */
-export async function getLatestTermsAnalysis(
-  siteId: string,
-  db: Queryable = pool,
-): Promise<LatestAnalysisRow | null> {
-  const { rows } = await db.query<LatestAnalysisRow>(
-    `SELECT pa.*, COALESCE(p.url, ps.url) AS policy_url, ps.policy_type
-     FROM policy_analyses pa
-     JOIN policies p ON p.id = pa.policy_id
-     JOIN policy_sources ps ON ps.id = pa.policy_source_id
-     JOIN policy_source_sites pss ON pss.policy_source_id = pa.policy_source_id
-     WHERE pss.site_id = $1 AND pa.status = 'done'
-       AND ps.policy_type = 'terms_of_service'
-       AND ${DOMAIN_WIDE('ps')}
-       AND ${IN_FORCE}
-     ORDER BY pa.analyzed_at DESC
-     LIMIT 1`,
-    [siteId]
-  );
-  return rows[0] ?? null;
-}
-
-export type PathScopedTermsRow = LatestAnalysisRow & { path_prefix: string };
+export type TermsDocRow = LatestAnalysisRow & { product: string | null; path_prefix: string | null };
 
 /**
- * Terms of Service that apply only under a path on this site (e.g. the
- * Businesses in ChatGPT Terms at chatgpt.com/business-hub). Latest in-force
- * analysis per source, longest prefix first so the extension can take the
- * first match.
+ * Every Terms of Service that applies to a site, one row per source (its newest
+ * in-force analysis), in display order:
+ *   1. site-wide terms, unlabeled (product IS NULL) before labeled ones such as
+ *      "Seller", newest first; the first of these is the site's default Terms;
+ *   2. path-scoped terms, longest prefix first, so the extension can take the
+ *      first prefix that matches the tab.
  */
-export async function getPathScopedTerms(
+export async function getTermsDocs(
   siteId: string,
   db: Queryable = pool,
-): Promise<PathScopedTermsRow[]> {
-  const { rows } = await db.query<PathScopedTermsRow>(
-    `SELECT DISTINCT ON (ps.id) pa.*, COALESCE(p.url, ps.url) AS policy_url, ps.policy_type, ps.path_prefix
-     FROM policy_analyses pa
-     JOIN policies p ON p.id = pa.policy_id
-     JOIN policy_sources ps ON ps.id = pa.policy_source_id
-     JOIN policy_source_sites pss ON pss.policy_source_id = pa.policy_source_id
-     WHERE pss.site_id = $1 AND pa.status = 'done'
-       AND ps.policy_type = 'terms_of_service'
-       AND ps.path_prefix IS NOT NULL
-       AND ${IN_FORCE}
-     ORDER BY ps.id, pa.analyzed_at DESC`,
+): Promise<TermsDocRow[]> {
+  const { rows } = await db.query<TermsDocRow>(
+    `SELECT * FROM (
+       SELECT DISTINCT ON (ps.id) pa.*, COALESCE(p.url, ps.url) AS policy_url, ps.policy_type,
+              ps.product, pss.path_prefix
+       FROM policy_analyses pa
+       JOIN policies p ON p.id = pa.policy_id
+       JOIN policy_sources ps ON ps.id = pa.policy_source_id
+       JOIN policy_source_sites pss ON pss.policy_source_id = pa.policy_source_id
+       WHERE pss.site_id = $1 AND pa.status = 'done'
+         AND ps.policy_type = 'terms_of_service'
+         AND ${IN_FORCE}
+       ORDER BY ps.id, pa.analyzed_at DESC
+     ) t
+     ORDER BY (t.path_prefix IS NULL) DESC, length(t.path_prefix) DESC NULLS FIRST,
+              (t.product IS NULL) DESC, t.analyzed_at DESC`,
     [siteId]
   );
-  return rows.sort((a, b) => b.path_prefix.length - a.path_prefix.length);
+  return rows;
 }
 
-export type UpcomingAnalysisRow =PolicyAnalysisRow & { policy_url: string; effective_at: Date };
+/** Display name for a Terms document: "Terms of Service", or its product label. */
+export function termsLabel(product: string | null): string {
+  const p = product?.trim();
+  if (!p) return 'Terms of Service';
+  return /\b(terms|agreement|conditions|policy)\b/i.test(p) ? p : `${p} Terms`;
+}
+
+
+export type UpcomingAnalysisRow = PolicyAnalysisRow & { policy_url: string; effective_at: Date };
 
 /**
  * The announced, not-yet-in-force policy for a source, if one has been analyzed.
@@ -131,7 +120,6 @@ export async function getUpcomingAnalysis(
      JOIN policy_sources ps ON ps.id = pa.policy_source_id
      WHERE pa.policy_source_id = $1 AND pa.status = 'done'
        AND ps.policy_type NOT IN (${STORE_ONLY_TYPE_LIST})
-       AND ${DOMAIN_WIDE('ps')}
        AND p.effective_at > NOW()
      ORDER BY p.effective_at ASC, pa.analyzed_at DESC
      LIMIT 1`,
@@ -149,7 +137,7 @@ export async function getAnalysisHistory(siteId: string): Promise<PolicyAnalysis
      JOIN policy_source_sites pss ON pss.policy_source_id = pa.policy_source_id
      WHERE pss.site_id = $1 AND pa.status = 'done'
        AND ps.policy_type NOT IN (${STORE_ONLY_TYPE_LIST})
-       AND ${DOMAIN_WIDE('ps')}
+       AND ${DOMAIN_WIDE('pss')}
        AND ${IN_FORCE}
      ORDER BY pa.analyzed_at DESC`,
     [siteId]
@@ -251,6 +239,7 @@ export async function getRankings(
       FROM policy_source_sites pss
       JOIN sites s ON s.id = pss.site_id
       WHERE pss.is_primary = TRUE
+        AND ${DOMAIN_WIDE('pss')}
     ),
     shared AS (
       SELECT pss.policy_source_id,
@@ -274,7 +263,6 @@ export async function getRankings(
     JOIN shared ON shared.policy_source_id = pa.policy_source_id
     WHERE pa.status = 'done'
       AND src.policy_type = $3
-      AND ${DOMAIN_WIDE('src')}
       AND ps_site.domain <> 'terms-vzh0.onrender.com'
       AND p.char_count >= 2000
       AND COALESCE(pa.summary, '') !~* $2
@@ -320,7 +308,6 @@ export async function getCoverageStats(
        WHERE pa.status = 'done'
          AND pa.overall_score IS NOT NULL
          AND ps.policy_type = $2
-         AND ${DOMAIN_WIDE('ps')}
          AND p.char_count >= 2000
          AND COALESCE(pa.summary, '') !~* $1
          AND ${IN_FORCE}
@@ -330,6 +317,7 @@ export async function getCoverageStats(
        FROM policy_source_sites pss
        JOIN sites s ON s.id = pss.site_id
        WHERE pss.policy_source_id IN (SELECT policy_source_id FROM good_sources)
+         AND ${DOMAIN_WIDE('pss')}
          AND s.domain <> 'terms-vzh0.onrender.com'
      )
      SELECT

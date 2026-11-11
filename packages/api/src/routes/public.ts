@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { getSiteByDomain } from '../db/queries/sites.js';
-import { getLatestAnalysis, getLatestTermsAnalysis, getAnalysisHistory, getRankings, getUpcomingAnalysis, getPathScopedTerms } from '../db/queries/analyses.js';
+import { getLatestAnalysis, getAnalysisHistory, getRankings, getUpcomingAnalysis, getTermsDocs, termsLabel } from '../db/queries/analyses.js';
 import { getSitesForSource } from '../db/queries/policy_sources.js';
 import { addCandidate, getCandidateByDomain } from '../db/queries/candidates.js';
 import { normalizeDomain, domainLookupCandidates } from '../utils/domain.js';
@@ -117,11 +117,15 @@ publicRouter.get('/check/:domain', async (req, res, next) => {
     const upcoming = await getUpcomingAnalysis(analysis.policy_source_id);
 
     // getLatestAnalysis prefers the privacy policy, so a ToS only lands in
-    // `analysis` when the site has no privacy analysis. Otherwise the ToS, if
-    // any, rides along as `terms` for the extension's Terms tab.
+    // `analysis` when the site has no privacy analysis. Otherwise the site's
+    // default ToS (first site-wide row of getTermsDocs) rides along as `terms`
+    // for extension builds that know only one Terms document, and every Terms
+    // document goes out as `termsDocs` for builds that can switch between them.
     const documentType = analysis.policy_type === 'terms_of_service' ? 'terms_of_service' : 'privacy_policy';
-    const terms = documentType === 'privacy_policy' ? await getLatestTermsAnalysis(resolved!.siteId) : null;
-    const pathTerms = await getPathScopedTerms(resolved!.siteId);
+    const termsRows = await getTermsDocs(resolved!.siteId);
+    const terms = documentType === 'privacy_policy'
+      ? termsRows.find((t) => t.path_prefix === null) ?? null
+      : null;
 
     const result: CheckResult = {
       found: true,
@@ -151,10 +155,11 @@ publicRouter.get('/check/:domain', async (req, res, next) => {
             },
           }
         : {}),
-      ...(pathTerms.length > 0
+      ...(termsRows.length > 0
         ? {
-            pathTerms: pathTerms.map((t) => ({
-              pathPrefix: t.path_prefix,
+            termsDocs: termsRows.map((t) => ({
+              label: termsLabel(t.product),
+              ...(t.path_prefix ? { pathPrefix: t.path_prefix } : {}),
               policyUrl: t.policy_url,
               lastAnalyzed: t.analyzed_at.toISOString(),
               analysis: rowToAnalysis(t)!,

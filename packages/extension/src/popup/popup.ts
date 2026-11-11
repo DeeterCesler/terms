@@ -171,19 +171,8 @@ function renderFound(domain: string, result: any, pathname?: string) {
   };
 
   for (const kind of ['privacy', 'terms'] as DocKind[]) {
-    const doc = docs[kind];
     const tab = tabs[kind];
-    const scoreEl = document.getElementById(`tab-${kind}-score`) as HTMLElement;
-    tab.classList.toggle('is-empty', !doc);
-    if (doc) {
-      scoreEl.textContent = String(doc.analysis.overallScore);
-      scoreEl.className = `tab-score ${scoreTierClass(doc.analysis.overallScore)}`;
-      tab.setAttribute('aria-label', `${DOC_LABELS[kind].tab}, score ${doc.analysis.overallScore} out of 10`);
-    } else {
-      scoreEl.textContent = 'none';
-      scoreEl.className = 'tab-score';
-      tab.setAttribute('aria-label', `${DOC_LABELS[kind].tab}, not analyzed yet`);
-    }
+    setTabScore(kind, docs[kind]);
     tab.onclick = () => selectDoc(domain, docs, kind);
     tab.onkeydown = (e: KeyboardEvent) => {
       if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
@@ -205,16 +194,78 @@ function selectDoc(domain: string, docs: PolicyDocs, kind: DocKind) {
     tab.tabIndex = selected ? 0 : -1;
   }
 
+  renderTermsSwitch(domain, docs, kind);
+
   const doc = docs[kind];
   const missing = document.getElementById('doc-missing') as HTMLElement;
   const body = document.getElementById('doc-body') as HTMLElement;
   missing.classList.toggle('hidden', doc !== null);
   body.classList.toggle('hidden', doc === null);
   if (!doc) {
-    missing.textContent = DOC_LABELS[kind].missing;
+    missing.textContent = kind === 'terms' && docs.termsOptions.length > 0
+      ? 'None of these terms cover this page. Pick one above to read it anyway.'
+      : DOC_LABELS[kind].missing;
     return;
   }
   renderDoc(domain, doc);
+}
+
+// Score text and accessible name for a tab; "none" when nothing applies.
+function setTabScore(kind: DocKind, doc: PolicyDoc | null) {
+  const tab = document.getElementById(`tab-${kind}`) as HTMLButtonElement;
+  const scoreEl = document.getElementById(`tab-${kind}-score`) as HTMLElement;
+  tab.classList.toggle('is-empty', !doc);
+  if (doc) {
+    scoreEl.textContent = String(doc.analysis.overallScore);
+    scoreEl.className = `tab-score ${scoreTierClass(doc.analysis.overallScore)}`;
+    tab.setAttribute('aria-label', `${DOC_LABELS[kind].tab}, score ${doc.analysis.overallScore} out of 10`);
+  } else {
+    scoreEl.textContent = 'none';
+    scoreEl.className = 'tab-score';
+    tab.setAttribute('aria-label', `${DOC_LABELS[kind].tab}, not analyzed yet`);
+  }
+}
+
+// On the Terms tab, name the document being shown, and when the site has more
+// than one Terms document, offer the others in a dropdown.
+function renderTermsSwitch(domain: string, docs: PolicyDocs, kind: DocKind) {
+  const wrap = document.getElementById('terms-switch') as HTMLElement;
+  const select = document.getElementById('terms-select') as HTMLSelectElement;
+  const label = document.getElementById('terms-doc-label') as HTMLElement;
+  const options = kind === 'terms' ? docs.termsOptions : [];
+
+  // A dropdown when there is a choice to make: several documents, or only
+  // path-scoped ones that do not cover this page (nothing is selected yet).
+  const showSelect = options.length > 1 || (options.length === 1 && !docs.terms);
+  wrap.classList.toggle('hidden', !showSelect);
+  const single = !showSelect && options.length === 1 ? options[0] : null;
+  const named = single?.label && single.label !== 'Terms of Service' ? single.label : null;
+  label.classList.toggle('hidden', !named);
+  label.textContent = named ?? '';
+  if (!showSelect) return;
+
+  select.replaceChildren();
+  if (!docs.terms) {
+    const none = document.createElement('option');
+    none.value = '';
+    none.textContent = 'Choose a document';
+    select.appendChild(none);
+  }
+  options.forEach((o, i) => {
+    const opt = document.createElement('option');
+    opt.value = String(i);
+    const where = o.pathPrefix ? ` (${o.pathPrefix})` : '';
+    opt.textContent = `${o.label ?? 'Terms of Service'}${where}, ${o.analysis.overallScore}/10`;
+    opt.selected = o === docs.terms;
+    select.appendChild(opt);
+  });
+  select.onchange = () => {
+    const picked = options[Number(select.value)];
+    if (!picked) return;
+    docs.terms = picked;
+    setTabScore('terms', picked);
+    selectDoc(domain, docs, 'terms');
+  };
 }
 
 function renderDoc(domain: string, doc: PolicyDoc) {

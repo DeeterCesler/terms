@@ -103,6 +103,33 @@ main { padding: 12px 14px; }
 .tab-score.poor { color: #b91c1c; }
 .doc-tab.is-empty .tab-score { color: #9ca3af; font-weight: 500; }
 
+.terms-switch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0 4px;
+}
+.terms-switch-label { font-size: 14px; color: #6b7280; }
+.terms-select {
+  flex: 1;
+  min-width: 0;
+  min-height: 40px;
+  padding: 6px 8px;
+  font: inherit;
+  font-size: 16px;
+  color: #111;
+  background: #fff;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+}
+.terms-select:focus-visible { outline: 2px solid #4f46e5; outline-offset: 1px; }
+.terms-doc-label {
+  margin: 8px 0 4px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #111;
+}
+
 .doc-missing {
   margin: 8px 0 12px;
   font-size: 14px;

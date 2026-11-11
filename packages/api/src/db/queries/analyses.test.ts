@@ -11,7 +11,8 @@ vi.mock('../client.js', () => ({ pool: { query: queryMock } }));
 const {
   IN_FORCE,
   getLatestAnalysis,
-  getLatestTermsAnalysis,
+  getTermsDocs,
+  termsLabel,
   getAnalysisHistory,
   getRankings,
   getCoverageStats,
@@ -30,7 +31,7 @@ beforeEach(() => {
 describe('public read paths only see policies in force', () => {
   it.each([
     ['getLatestAnalysis', () => getLatestAnalysis('site')],
-    ['getLatestTermsAnalysis', () => getLatestTermsAnalysis('site')],
+    ['getTermsDocs', () => getTermsDocs('site')],
     ['getAnalysisHistory', () => getAnalysisHistory('site')],
     ['getRankings', () => getRankings(5)],
     ['getCoverageStats', () => getCoverageStats()],
@@ -72,12 +73,32 @@ describe('getUpcomingAnalysis', () => {
 describe('getLatestAnalysis document preference', () => {
   it('ranks the privacy policy ahead of a newer terms of service', async () => {
     await getLatestAnalysis('site');
-    expect(sent()[0]).toMatch(/ORDER BY \(ps\.policy_type = 'privacy_policy'\) DESC, pa\.analyzed_at DESC/);
+    expect(sent()[0]).toMatch(/ORDER BY \(ps\.policy_type = 'privacy_policy'\) DESC, \(ps\.product IS NULL\) DESC, pa\.analyzed_at DESC/);
   });
 
-  it('getLatestTermsAnalysis only reads terms of service', async () => {
-    await getLatestTermsAnalysis('site');
+  it('getTermsDocs only reads terms of service, site-wide and unlabeled first', async () => {
+    await getTermsDocs('site');
     expect(sent()[0]).toContain("ps.policy_type = 'terms_of_service'");
+    expect(sent()[0]).toMatch(/ORDER BY \(t\.path_prefix IS NULL\) DESC, length\(t\.path_prefix\) DESC NULLS FIRST,\s+\(t\.product IS NULL\) DESC/);
+  });
+
+  it('termsLabel names labeled products', () => {
+    expect(termsLabel(null)).toBe('Terms of Service');
+    expect(termsLabel('Seller')).toBe('Seller Terms');
+    expect(termsLabel('Businesses in ChatGPT Terms')).toBe('Businesses in ChatGPT Terms');
+    expect(termsLabel('Consumer Service Agreement')).toBe('Consumer Service Agreement');
+  });
+});
+
+describe('path-scoped site links stay off domain-level read paths', () => {
+  it.each([
+    ['getLatestAnalysis', () => getLatestAnalysis('site')],
+    ['getAnalysisHistory', () => getAnalysisHistory('site')],
+    ['getRankings', () => getRankings(5)],
+    ['getCoverageStats', () => getCoverageStats()],
+  ])('%s', async (_name, run) => {
+    await run();
+    for (const sql of sent()) expect(sql).toContain('pss.path_prefix IS NULL');
   });
 });
 
