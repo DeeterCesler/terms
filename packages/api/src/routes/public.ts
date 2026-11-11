@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { getSiteByDomain } from '../db/queries/sites.js';
-import { getLatestAnalysis, getLatestTermsAnalysis, getAnalysisHistory, getRankings, getUpcomingAnalysis } from '../db/queries/analyses.js';
+import { getLatestAnalysis, getLatestTermsAnalysis, getAnalysisHistory, getRankings, getUpcomingAnalysis, getPathScopedTerms } from '../db/queries/analyses.js';
 import { getSitesForSource } from '../db/queries/policy_sources.js';
 import { addCandidate, getCandidateByDomain } from '../db/queries/candidates.js';
 import { normalizeDomain, domainLookupCandidates } from '../utils/domain.js';
@@ -121,6 +121,7 @@ publicRouter.get('/check/:domain', async (req, res, next) => {
     // any, rides along as `terms` for the extension's Terms tab.
     const documentType = analysis.policy_type === 'terms_of_service' ? 'terms_of_service' : 'privacy_policy';
     const terms = documentType === 'privacy_policy' ? await getLatestTermsAnalysis(resolved!.siteId) : null;
+    const pathTerms = await getPathScopedTerms(resolved!.siteId);
 
     const result: CheckResult = {
       found: true,
@@ -148,6 +149,16 @@ publicRouter.get('/check/:domain', async (req, res, next) => {
               lastAnalyzed: terms.analyzed_at.toISOString(),
               analysis: rowToAnalysis(terms)!,
             },
+          }
+        : {}),
+      ...(pathTerms.length > 0
+        ? {
+            pathTerms: pathTerms.map((t) => ({
+              pathPrefix: t.path_prefix,
+              policyUrl: t.policy_url,
+              lastAnalyzed: t.analyzed_at.toISOString(),
+              analysis: rowToAnalysis(t)!,
+            })),
           }
         : {}),
     };

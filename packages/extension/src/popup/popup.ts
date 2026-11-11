@@ -160,11 +160,11 @@ const DOC_LABELS: Record<DocKind, { tab: string; score: string; noun: string; mi
 
 // Privacy and Terms tabs. Both are always shown; a document we have not
 // analyzed keeps a muted, still-clickable tab that explains why it is empty.
-function renderFound(domain: string, result: any) {
+function renderFound(domain: string, result: any, pathname?: string) {
   (document.getElementById('found-domain') as HTMLElement).textContent =
     `Policy for ${result.policyDomain ?? domain}`;
 
-  const docs = splitDocuments(result);
+  const docs = splitDocuments(result, pathname);
   const tabs: Record<DocKind, HTMLButtonElement> = {
     privacy: document.getElementById('tab-privacy') as HTMLButtonElement,
     terms: document.getElementById('tab-terms') as HTMLButtonElement,
@@ -525,7 +525,7 @@ async function main() {
       return;
     }
 
-    renderFound(domain, result);
+    renderFound(domain, result, new URL(url).pathname);
 
     // Update badge
     chrome.runtime.sendMessage({ type: 'SET_BADGE', score: result.analysis.overallScore });

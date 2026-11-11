@@ -27,7 +27,29 @@ export interface PolicyDocs {
   initial: DocKind;
 }
 
-export function splitDocuments(result: any): PolicyDocs {
+// True when `pathname` is `prefix` itself or a page beneath it, matching on
+// whole segments so /business-hub does not catch /business-hubris.
+export function pathMatches(pathname: string, prefix: string): boolean {
+  const base = prefix.replace(/\/+$/, '');
+  return pathname === base || pathname.startsWith(`${base}/`);
+}
+
+// The path-scoped Terms (server field `pathTerms`, longest prefix first) that
+// govern this page, if any. Matching runs here so the path never leaves the device.
+function pathScopedTerms(result: any, pathname: string | undefined): PolicyDoc | null {
+  if (!pathname || !Array.isArray(result.pathTerms)) return null;
+  const t = result.pathTerms.find(
+    (e: any) => typeof e?.pathPrefix === 'string' && pathMatches(pathname, e.pathPrefix),
+  );
+  if (!t || !t.analysis || typeof t.analysis.overallScore !== 'number') return null;
+  return { kind: 'terms', policyUrl: t.policyUrl, lastAnalyzed: t.lastAnalyzed, analysis: t.analysis };
+}
+
+// `pathname` is the current tab's path. When path-scoped Terms match it, they
+// replace the site-wide Terms and the popup opens on the Terms tab, since they
+// are the document that governs the page.
+export function splitDocuments(result: any, pathname?: string): PolicyDocs {
+  const scoped = pathScopedTerms(result, pathname);
   const top: PolicyDoc = {
     kind: result.documentType === 'terms_of_service' ? 'terms' : 'privacy',
     policyUrl: result.policyUrl,
@@ -38,8 +60,9 @@ export function splitDocuments(result: any): PolicyDocs {
   };
 
   if (top.kind === 'terms') {
-    return { privacy: null, terms: top, initial: 'terms' };
+    return { privacy: null, terms: scoped ?? top, initial: 'terms' };
   }
+  if (scoped) return { privacy: top, terms: scoped, initial: 'terms' };
 
   const t = result.terms;
   const terms: PolicyDoc | null =

@@ -63,6 +63,16 @@ export interface CheckResponse {
     lastAnalyzed: string;
     analysis: CheckResponse['analysis'];
   };
+  // Terms that replace `terms` only on pages under a path (chatgpt.com/business-hub
+  // runs under OpenAI's Businesses in ChatGPT Terms). Longest prefix first. The
+  // extension matches the tab's path locally so paths never reach the server.
+  // Omitted when there are none; older extension builds ignore it.
+  pathTerms?: Array<{
+    pathPrefix: string;
+    policyUrl: string;
+    lastAnalyzed: string;
+    analysis: CheckResponse['analysis'];
+  }>;
 }
 
 export interface RankingsResponse {

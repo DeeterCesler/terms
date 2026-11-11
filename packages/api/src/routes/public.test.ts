@@ -7,12 +7,14 @@ const getSiteByDomain = vi.fn();
 const getLatestAnalysis = vi.fn();
 const getUpcomingAnalysis = vi.fn();
 const getLatestTermsAnalysis = vi.fn();
+const getPathScopedTerms = vi.fn();
 
 vi.mock('../db/queries/sites.js', () => ({ getSiteByDomain }));
 vi.mock('../db/queries/analyses.js', () => ({
   getLatestAnalysis,
   getLatestTermsAnalysis,
   getUpcomingAnalysis,
+  getPathScopedTerms,
   getAnalysisHistory: vi.fn(),
   getRankings: vi.fn(),
 }));
@@ -71,6 +73,7 @@ beforeEach(() => {
   getLatestAnalysis.mockReset().mockImplementation(async () => analysisRow());
   getUpcomingAnalysis.mockReset().mockImplementation(async () => null);
   getLatestTermsAnalysis.mockReset().mockImplementation(async () => null);
+  getPathScopedTerms.mockReset().mockImplementation(async () => []);
 });
 
 describe('GET /check/:domain upcoming', () => {
@@ -158,5 +161,41 @@ describe('GET /check/:domain privacy and terms', () => {
     expect(body.documentType).toBe('terms_of_service');
     expect('terms' in body).toBe(false);
     expect(getLatestTermsAnalysis).not.toHaveBeenCalled();
+  });
+
+  it('omits pathTerms when the site has no path-scoped terms', async () => {
+    getLatestAnalysis.mockImplementation(async () => analysisRow({ policy_type: 'privacy_policy' }));
+    const body = await (await fetch(`${base}/check/${nextDomain()}`)).json();
+    expect('pathTerms' in body).toBe(false);
+  });
+
+  it('sends path-scoped terms as pathTerms without touching terms', async () => {
+    getLatestAnalysis.mockImplementation(async () => analysisRow({ policy_type: 'privacy_policy', overall_score: 7 }));
+    getPathScopedTerms.mockImplementation(async () => [
+      {
+        ...analysisRow({
+          id: 'a3',
+          policy_source_id: 'src3',
+          policy_type: 'terms_of_service',
+          policy_url: 'https://example.com/biz-terms',
+          analyzed_at: new Date('2026-11-10T00:00:00Z'),
+          overall_score: 2,
+          summary: 'biz',
+        }),
+        path_prefix: '/business-hub',
+      },
+    ]);
+    const body = await (await fetch(`${base}/check/${nextDomain()}`)).json();
+
+    expect(body.analysis.overallScore).toBe(7);
+    expect('terms' in body).toBe(false);
+    expect(body.pathTerms).toEqual([
+      {
+        pathPrefix: '/business-hub',
+        policyUrl: 'https://example.com/biz-terms',
+        lastAnalyzed: '2026-11-10T00:00:00.000Z',
+        analysis: expect.objectContaining({ overallScore: 2, summary: 'biz' }),
+      },
+    ]);
   });
 });
